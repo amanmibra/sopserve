@@ -1,0 +1,9 @@
+name: Delivery
+agents: "*"
+description: Delivery orders have a confirmed address inside the delivery zone.
+scope: The customer asks for delivery.
+procedureSteps:
+  - Ask for the full delivery address
+  - text: Check the address is inside the delivery zone
+    tool: check_delivery_zone
+  - Tell the customer the estimated delivery time

@@ -1,0 +1,30 @@
+[project]
+name = "sopserve"
+version = "0.0.1"
+description = "Serve sopkit-built agent prompts at call start."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "sopkit @ git+https://github.com/amanmibra/sopkit@v0.0.1",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[project.scripts]
+sopserve = "sopserve.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8", "httpx2"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sopserve"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,154 @@
+{
+  "version": 1,
+  "agents": {
+    "luigis-trattoria": {
+      "platform_ref": "livekit:luigis-trattoria",
+      "hash": "e45cbc115b84316cf5ed7529e8d66239a685dd2defe7d191e10c4583c14266de",
+      "blocks": [
+        {
+          "kind": "agent",
+          "id": "luigis-trattoria",
+          "hash": "8f7e72f544563f8512c56a78c6a6bf03018e3eb021fc4058e48360ad1bf0bfd8"
+        },
+        {
+          "kind": "base",
+          "id": "restaurant-host",
+          "hash": "cfa0fc804ad2f51283d7f56b298cbd08b1d8d5a21cdeb345b447effaa5de674b"
+        },
+        {
+          "kind": "base",
+          "id": "brand-voice",
+          "hash": "b4f23bc3a75f4be2f6d4e8de73767b593856b12a3cd7532dff21217bf848e978"
+        },
+        {
+          "kind": "base",
+          "id": "closing",
+          "hash": "fa029caddb594caba1cdd83e4f93ee2b4bcc3d931fb43fe5950696041ee8ab9c"
+        },
+        {
+          "kind": "sop",
+          "id": "allergen-check",
+          "hash": "64a6f2aa8ddce555b89ab21d644078215df9dba330f6e27077e22fc3a4e2afd3"
+        },
+        {
+          "kind": "sop",
+          "id": "delivery-handling",
+          "hash": "010a06b32f7c6dffc6c2817b2470182e59783cfa32a44243069e42ba50ed7f8a"
+        },
+        {
+          "kind": "sop",
+          "id": "large-orders",
+          "hash": "633ae6586c5ea078ca999c59a602031cbea0b5004c51e5de13b9e7c6f8ec90db"
+        },
+        {
+          "kind": "sop",
+          "id": "reservations",
+          "hash": "2a1af91bbc55f7ada26be49502f413595dc5dcfd9c503ddc7f2bb512a24139be"
+        }
+      ],
+      "tools": [
+        "check_capacity",
+        "check_delivery_zone",
+        "check_reservations",
+        "lookup_allergens",
+        "place_order",
+        "transfer_to_staff"
+      ]
+    },
+    "sakura-sushi": {
+      "platform_ref": "livekit:sakura-sushi",
+      "hash": "54fd93445bb647d90b9671fe5c6b7b99ffb4b61f3efbef6f116b29aec69849b7",
+      "blocks": [
+        {
+          "kind": "agent",
+          "id": "sakura-sushi",
+          "hash": "30d0d528e7fb2a14c11efc19379169fb7fc8b66073605751ff9c6e500751bff8"
+        },
+        {
+          "kind": "base",
+          "id": "restaurant-host",
+          "hash": "cfa0fc804ad2f51283d7f56b298cbd08b1d8d5a21cdeb345b447effaa5de674b"
+        },
+        {
+          "kind": "base",
+          "id": "brand-voice",
+          "hash": "b4f23bc3a75f4be2f6d4e8de73767b593856b12a3cd7532dff21217bf848e978"
+        },
+        {
+          "kind": "base",
+          "id": "closing",
+          "hash": "fa029caddb594caba1cdd83e4f93ee2b4bcc3d931fb43fe5950696041ee8ab9c"
+        },
+        {
+          "kind": "sop",
+          "id": "allergen-check",
+          "hash": "64a6f2aa8ddce555b89ab21d644078215df9dba330f6e27077e22fc3a4e2afd3"
+        },
+        {
+          "kind": "sop",
+          "id": "reservations",
+          "hash": "2a1af91bbc55f7ada26be49502f413595dc5dcfd9c503ddc7f2bb512a24139be"
+        }
+      ],
+      "tools": [
+        "check_reservations",
+        "lookup_allergens",
+        "place_order",
+        "transfer_to_staff"
+      ]
+    },
+    "tonys-pizza": {
+      "platform_ref": "livekit:tonys-pizza",
+      "hash": "8be7cbf956d8d6fb56041fd62b2da199ec7f91e9f163fd96a2a24a0f813a9782",
+      "blocks": [
+        {
+          "kind": "agent",
+          "id": "tonys-pizza",
+          "hash": "8a8a51a0ebb52761c92b3a7ec048653d23bf8e8a27c55e49a92874a583f3e5cb"
+        },
+        {
+          "kind": "base",
+          "id": "restaurant-host",
+          "hash": "cfa0fc804ad2f51283d7f56b298cbd08b1d8d5a21cdeb345b447effaa5de674b"
+        },
+        {
+          "kind": "base",
+          "id": "pizza-context",
+          "hash": "3de8aeb800eba44572c8ec7ccad9a8e5858f0f6643a33d0e47aaad4f64e54a20"
+        },
+        {
+          "kind": "base",
+          "id": "brand-voice",
+          "hash": "b4f23bc3a75f4be2f6d4e8de73767b593856b12a3cd7532dff21217bf848e978"
+        },
+        {
+          "kind": "base",
+          "id": "closing",
+          "hash": "fa029caddb594caba1cdd83e4f93ee2b4bcc3d931fb43fe5950696041ee8ab9c"
+        },
+        {
+          "kind": "sop",
+          "id": "allergen-check",
+          "hash": "64a6f2aa8ddce555b89ab21d644078215df9dba330f6e27077e22fc3a4e2afd3"
+        },
+        {
+          "kind": "sop",
+          "id": "delivery-handling",
+          "hash": "010a06b32f7c6dffc6c2817b2470182e59783cfa32a44243069e42ba50ed7f8a"
+        },
+        {
+          "kind": "sop",
+          "id": "large-orders",
+          "hash": "633ae6586c5ea078ca999c59a602031cbea0b5004c51e5de13b9e7c6f8ec90db"
+        }
+      ],
+      "tools": [
+        "check_capacity",
+        "check_delivery_zone",
+        "lookup_allergens",
+        "place_order",
+        "transfer_to_staff"
+      ]
+    }
+  }
+}

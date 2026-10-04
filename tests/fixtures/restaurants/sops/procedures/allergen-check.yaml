@@ -1,0 +1,19 @@
+name: Allergen check
+agents: "*"
+description: Customer leaves knowing whether their order is safe for their allergy.
+scope: Any order where the customer mentions a food allergy or dietary restriction.
+guidance: |
+  Parents often ask on behalf of a child. Confirm who the allergy is for before checking items.
+procedureSteps:
+  - Ask if anyone in the order has a food allergy
+  - Name the specific allergen back to the customer
+  - text: Check each item the customer ordered against {{menu_allergen_link}}
+    tool: lookup_allergens
+    required: true
+forbiddenActions:
+  - Never say an item is "allergen-free" or "safe"
+  - text: Never place the order before allergens are confirmed
+    tool: place_order
+warningSigns:
+  - text: Customer mentions anaphylaxis or an EpiPen; transfer to {{staff_transfer}}
+    tool: transfer_to_staff

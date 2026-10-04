@@ -1,0 +1,14 @@
+name: Large orders
+agents: [tonys-pizza, luigis-trattoria]
+delivery: auto
+description: Orders over 10 items are placed with a confirmed pickup time the kitchen can meet.
+scope: Any order with more than 10 items or a total over $200.
+procedureSteps:
+  - Confirm the full item list back to the customer
+  - text: Check kitchen capacity for the requested time
+    tool: check_capacity
+  - Offer the earliest time the kitchen can meet
+forbiddenActions:
+  - Never promise a pickup time the kitchen hasn't confirmed
+warningSigns:
+  - Customer asks for catering or staff on site; transfer to {{staff_transfer}}

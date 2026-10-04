@@ -1,0 +1,32 @@
+{
+  "large-orders": {
+    "id": "large-orders",
+    "name": "Large orders",
+    "text": "### Large orders\nGoal: Orders over 10 items are placed with a confirmed pickup time the kitchen can meet.\nWhen this applies: Any order with more than 10 items or a total over $200.\n\nSteps:\n1. Confirm the full item list back to the customer\n2. Check kitchen capacity for the requested time. Use the `check_capacity` tool.\n3. Offer the earliest time the kitchen can meet\n\nNever:\n- Never promise a pickup time the kitchen hasn't confirmed\n\nWarning signs:\n- Customer asks for catering or staff on site; transfer to the manager on duty",
+    "description": "Orders over 10 items are placed with a confirmed pickup time the kitchen can meet.",
+    "scope": "Any order with more than 10 items or a total over $200.",
+    "guidance": "",
+    "procedureSteps": [
+      {
+        "text": "Confirm the full item list back to the customer"
+      },
+      {
+        "text": "Check kitchen capacity for the requested time",
+        "tool": "check_capacity"
+      },
+      {
+        "text": "Offer the earliest time the kitchen can meet"
+      }
+    ],
+    "forbiddenActions": [
+      {
+        "text": "Never promise a pickup time the kitchen hasn't confirmed"
+      }
+    ],
+    "warningSigns": [
+      {
+        "text": "Customer asks for catering or staff on site; transfer to the manager on duty"
+      }
+    ]
+  }
+}

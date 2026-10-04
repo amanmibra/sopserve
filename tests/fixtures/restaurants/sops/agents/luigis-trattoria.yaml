@@ -1,0 +1,7 @@
+livekit: luigis-trattoria
+inherits: [restaurant-host]
+variables:
+  restaurant_name: Luigi's Trattoria
+  menu_allergen_link: luigis.com/menu#allergens
+instructions: |
+  Luigi's is a sit-down Italian restaurant in Queens. Takeout and reservations, no delivery on Mondays.

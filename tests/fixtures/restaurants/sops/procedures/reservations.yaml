@@ -1,0 +1,11 @@
+name: Reservations
+agents: [sakura-sushi, luigis-trattoria]
+description: The customer has a confirmed table, or knows exactly why one isn't available.
+scope: The customer wants to book, change or cancel a table.
+procedureSteps:
+  - Ask for party size, date and time
+  - text: Check availability
+    tool: check_reservations
+  - Confirm the booking details and the name on the reservation
+forbiddenActions:
+  - Never double-book a table
