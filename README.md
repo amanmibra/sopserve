@@ -18,7 +18,7 @@ OpenAPI at `/openapi.json`. Data is stored under `SOPSERVE_DATA_DIR` (default `.
 | Endpoint | What it does |
 |---|---|
 | `POST /v1/workspaces/<ws>/publish` | Render an OpenSOP workspace (files in the body) and make it the version agents get |
-| `GET /v1/workspaces/<ws>/agents/<agent>/prompt` | The agent's full prompt. `<agent>` is the sopkit id or platform ref (`livekit:tonys-pizza`). Responds with `X-OpenSOP-Hash` and logs the fetch. |
+| `GET /v1/workspaces/<ws>/agents/<agent>/prompt` | The agent's full prompt. `<agent>` is the OpenSOP agent id or platform ref (`livekit:tonys-pizza`). Responds with `X-OpenSOP-Hash` and logs the fetch. |
 | `GET /v1/workspaces/<ws>/agents/<agent>/sops/<id>` | What a `get_sop` tool returns, for SOPs with `delivery: auto` or `tool` |
 | `GET /v1/workspaces/<ws>/fetches` | Which prompt version each agent got, and when, to trace calls to prompts |
 | `POST /v1/validate`, `/v1/render`, `/v1/plan`, `/v1/check` | OpenSOP's checks over HTTP, for tools that aren't in Python |
