@@ -1,4 +1,4 @@
-# 🧩 sopserve
+# 📋🧩 sopserve
 
 The server for [OpenSOP](https://github.com/amanmibra/opensop). OpenSOP builds one full prompt per agent from shared bases and SOPs; sopserve hands each agent its prompt when a call starts, so a merged change goes live without redeploying the agent.
 
