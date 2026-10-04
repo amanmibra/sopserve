@@ -135,6 +135,15 @@ wheels = [
 ]
 
 [[package]]
+name = "opensop"
+version = "0.0.1"
+source = { git = "https://github.com/amanmibra/opensop?rev=v0.0.1#afd34ac87432e67b0746fdbcec8c14291e21405e" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[[package]]
 name = "opentelemetry-api"
 version = "1.45.0"
 source = { registry = "https://pypi.org/simple" }
@@ -326,21 +335,12 @@ wheels = [
 ]
 
 [[package]]
-name = "sopkit"
-version = "0.0.1"
-source = { git = "https://github.com/amanmibra/sopkit?rev=v0.0.1#7bbb52bccd95c900c28a319b7b2b5a7a76ae481c" }
-dependencies = [
-    { name = "pydantic" },
-    { name = "pyyaml" },
-]
-
-[[package]]
 name = "sopserve"
 version = "0.0.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
-    { name = "sopkit" },
+    { name = "opensop" },
     { name = "uvicorn" },
 ]
 
@@ -353,7 +353,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
-    { name = "sopkit", git = "https://github.com/amanmibra/sopkit?rev=v0.0.1" },
+    { name = "opensop", git = "https://github.com/amanmibra/opensop?rev=v0.0.1" },
     { name = "uvicorn", specifier = ">=0.30" },
 ]
 

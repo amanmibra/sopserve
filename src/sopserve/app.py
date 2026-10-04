@@ -1,4 +1,4 @@
-"""sopserve: the HTTP API for sopkit workspaces. Its OpenAPI spec (/openapi.json) is what SDKs are generated from.
+"""sopserve: the HTTP API for OpenSOP workspaces. Its OpenAPI spec (/openapi.json) is what SDKs are generated from.
 
 Run with `sopserve`. Set SOPSERVE_TOKEN to require `Authorization: Bearer <token>`.
 """
@@ -13,12 +13,12 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
 from pydantic import BaseModel, Field
 
-from sopkit import analyze
-from sopkit.issues import Issue, SopkitError
-from sopkit.loader import load_workspace_files
-from sopkit.plan import make_plan, snapshot
-from sopkit.render import Build, render_workspace
-from sopkit.validate import validate
+from opensop import analyze
+from opensop.issues import Issue, OpenSOPError
+from opensop.loader import load_workspace_files
+from opensop.plan import make_plan, snapshot
+from opensop.render import Build, render_workspace
+from opensop.validate import validate
 
 from .store import FileStore, NotFound
 
@@ -26,7 +26,7 @@ Files = dict[str, str]
 
 
 class FilesRequest(BaseModel):
-    files: Files = Field(description="Source files keyed by path relative to the sopkit root, e.g. 'bases/brand-voice.md'.")
+    files: Files = Field(description="Source files keyed by path relative to the OpenSOP root, e.g. 'bases/brand-voice.md'.")
 
 
 class PlanRequest(BaseModel):
@@ -71,14 +71,14 @@ class PublishResponse(BaseModel):
 
 
 def create_app(store: FileStore, token: str | None = None) -> FastAPI:
-    app = FastAPI(title="sopserve", version="0.0.1", description="Serves sopkit-built agent prompts at call start, and validates, renders, plans and checks sopkit workspaces over HTTP.")
+    app = FastAPI(title="sopserve", version="0.0.1", description="Serves OpenSOP-built agent prompts at call start, and validates, renders, plans and checks OpenSOP workspaces over HTTP.")
 
     def auth(authorization: str | None = Header(None)) -> None:
         if token and not (authorization and secrets.compare_digest(authorization, f"Bearer {token}")):
             raise HTTPException(401, "missing or invalid bearer token")
 
-    @app.exception_handler(SopkitError)
-    def sopkit_error(_, exc: SopkitError) -> JSONResponse:
+    @app.exception_handler(OpenSOPError)
+    def opensop_error(_, exc: OpenSOPError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"valid": False, "issues": [_issue(i) for i in exc.issues]})
 
     @app.exception_handler(NotFound)
@@ -93,7 +93,7 @@ def create_app(store: FileStore, token: str | None = None) -> FastAPI:
     def validate_files(req: FilesRequest) -> dict:
         try:
             issues = validate(load_workspace_files(req.files))
-        except SopkitError as e:
+        except OpenSOPError as e:
             issues = e.issues
         return {"valid": not any(i.severity == "error" for i in issues), "issues": [_issue(i) for i in issues]}
 
@@ -135,8 +135,8 @@ def create_app(store: FileStore, token: str | None = None) -> FastAPI:
         """The full prompt to give the agent at call start. `agent` is the alias or platform ref."""
         served = store.prompt(workspace, agent)
         store.log_fetch(workspace, served)
-        response.headers["X-Sopkit-Hash"] = served.hash
-        response.headers["X-Sopkit-Build"] = served.build_id
+        response.headers["X-OpenSOP-Hash"] = served.hash
+        response.headers["X-OpenSOP-Build"] = served.build_id
         return served.prompt
 
     @app.get("/v1/workspaces/{workspace}/agents/{agent}/sops/{sop_id}", dependencies=[Depends(auth)])

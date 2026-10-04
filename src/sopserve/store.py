@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
-from sopkit.build import write_build
-from sopkit.render import Build
+from opensop.build import write_build
+from opensop.render import Build
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 

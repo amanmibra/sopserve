@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from sopkit.loader import read_files
+from opensop.loader import read_files
 from sopserve import FileStore, create_app
 
 FIXTURE = Path(__file__).parent / "fixtures" / "restaurants" / "sops"
@@ -44,7 +44,7 @@ def test_plan_endpoint(client):
     assert body["by_block"] == [
         {"block": "base:brand-voice", "change": "edited", "agents": ["luigis-trattoria", "sakura-sushi", "tonys-pizza"]}
     ]
-    assert body["markdown"].startswith("**sopkit plan:** 3 agents change")
+    assert body["markdown"].startswith("**opensop plan:** 3 agents change")
 
 
 def test_publish_then_fetch_prompt_logs_the_version(client):
@@ -54,13 +54,13 @@ def test_publish_then_fetch_prompt_logs_the_version(client):
     res = client.get("/v1/workspaces/demo/agents/tonys-pizza/prompt")
     assert res.status_code == 200
     assert res.text == (FIXTURE.parent / "expected" / "tonys-pizza.prompt.md").read_text()
-    assert res.headers["X-Sopkit-Build"] == published["build_id"]
+    assert res.headers["X-OpenSOP-Build"] == published["build_id"]
 
     by_ref = client.get("/v1/workspaces/demo/agents/livekit:tonys-pizza/prompt")
     assert by_ref.text == res.text
 
     fetches = client.get("/v1/workspaces/demo/fetches", params={"agent": "tonys-pizza"}).json()
-    assert [f["hash"] for f in fetches] == [res.headers["X-Sopkit-Hash"]] * 2
+    assert [f["hash"] for f in fetches] == [res.headers["X-OpenSOP-Hash"]] * 2
 
     edited = {**files, "bases/brand-voice.md": files["bases/brand-voice.md"].replace("briefly", "concisely")}
     client.post("/v1/workspaces/demo/publish", json={"files": edited})

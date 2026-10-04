@@ -15,7 +15,7 @@ from .store import FileStore
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="sopserve", description="Serve sopkit-built agent prompts over HTTP.")
+    parser = argparse.ArgumentParser(prog="sopserve", description="Serve OpenSOP-built agent prompts over HTTP.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8484)
     parser.add_argument("--data-dir", default=os.environ.get("SOPSERVE_DATA_DIR", ".sopserve-data"))
