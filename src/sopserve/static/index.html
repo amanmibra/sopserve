@@ -6,266 +6,925 @@
 <title>sopserve</title>
 <style>
   :root {
-    --bg: #f7f7f5; --panel: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd;
-    --accent: #2f5bd3; --accent-text: #fff; --ok: #1f7a4d; --warn: #9a6200; --err: #b42318; --code: #f1f0ec;
+    --bg: #f4f6f8; --panel: #ffffff; --sunk: #eef1f4; --ink: #1b2230; --muted: #5e6878; --line: #dde1e7; --line-strong: #c5ccd6;
+    --accent: #0f6e6a; --accent-soft: #e2f1ef; --accent-ink: #ffffff;
+    --ok: #2e7d4f; --warn: #a15c07; --warn-soft: #fbf0df; --err: #b42318; --err-soft: #fbe9e7;
+    --radius: 8px; --focus: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+    color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9b9a93; --line: #34332f;
-      --accent: #7c9cf0; --accent-text: #111; --ok: #5fc08f; --warn: #e0a640; --err: #f0786c; --code: #262624; }
+    :root:not([data-theme="light"]) {
+      --bg: #12161c; --panel: #1a2028; --sunk: #151a21; --ink: #e6eaf0; --muted: #93a0b0; --line: #2a323d; --line-strong: #3a4552;
+      --accent: #4fc1b9; --accent-soft: #173431; --accent-ink: #0d1a19;
+      --ok: #6cc597; --warn: #e6a94f; --warn-soft: #2f2616; --err: #f08a7e; --err-soft: #35201e;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161c; --panel: #1a2028; --sunk: #151a21; --ink: #e6eaf0; --muted: #93a0b0; --line: #2a323d; --line-strong: #3a4552;
+    --accent: #4fc1b9; --accent-soft: #173431; --accent-ink: #0d1a19;
+    --ok: #6cc597; --warn: #e6a94f; --warn-soft: #2f2616; --err: #f08a7e; --err-soft: #35201e;
+    color-scheme: dark;
   }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
-  header h1 { font-size: 16px; margin: 0 8px 0 0; }
-  main { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 53px); }
-  aside { border-right: 1px solid var(--line); padding: 12px; overflow: auto; background: var(--panel); }
-  section.view { padding: 16px 20px; overflow: auto; min-width: 0; }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
-  h3 { font-size: 15px; margin: 0 0 10px; }
-  ul.list { list-style: none; margin: 0; padding: 0; }
-  ul.list li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
-  ul.list li:hover, ul.list li.active { background: var(--code); }
-  .muted { color: var(--muted); }
-  .small { font-size: 12px; }
-  .mono, textarea, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
-  button { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  button.danger { color: var(--err); }
-  button:disabled { opacity: .5; cursor: default; }
-  input, select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
-  textarea { width: 100%; min-height: 420px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); resize: vertical; }
-  pre { background: var(--code); padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; margin: 0; max-height: 70vh; overflow: auto; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select, textarea { font: inherit; color: inherit; }
   a { color: var(--accent); }
-  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
-  .badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: var(--code); color: var(--muted); white-space: nowrap; }
-  .s-added, .s-edited, .s-changed { color: var(--warn); } .s-deleted, .s-removed { color: var(--err); } .s-live { color: var(--ok); }
-  .issues { margin: 8px 0; padding: 0; list-style: none; }
-  .issues li { padding: 6px 10px; border-left: 3px solid var(--err); background: var(--code); margin-bottom: 4px; border-radius: 4px; }
-  .issues li.warning { border-color: var(--warn); }
-  .msg { padding: 6px 10px; border-radius: 6px; background: var(--code); margin: 8px 0; }
-  .msg.ok { color: var(--ok); } .msg.err { color: var(--err); }
-  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  table { border-collapse: collapse; width: 100%; } td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  :focus-visible { outline: none; box-shadow: var(--focus); }
+
+  /* frame */
+  .top { display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; flex-wrap: wrap; }
+  .brand { font-weight: 650; font-size: 15px; letter-spacing: -.01em; margin-right: 6px; }
+  .spacer { flex: 1; }
+  .shell { display: grid; grid-template-columns: 264px minmax(0, 1fr); min-height: calc(100vh - 55px); }
+  nav.rail { background: var(--panel); border-right: 1px solid var(--line); padding: 14px 10px 40px; position: sticky; top: 55px; height: calc(100vh - 55px); overflow: auto; }
+  main { padding: 24px 32px 40px; min-width: 0; }
+  .page { max-width: 860px; }
+  .page.wide { max-width: 1320px; }
+
+  /* rail */
+  .rail-group { margin-bottom: 18px; }
+  .rail-head { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 4px; }
+  .rail-head h2 { font-size: 13px; font-weight: 600; margin: 0; color: var(--muted); }
+  .rail a.item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; color: var(--ink); text-decoration: none; min-width: 0; }
+  .rail a.item:hover { background: var(--sunk); }
+  .rail a.item.active { background: var(--accent-soft); }
+  .rail a.item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rail .empty { padding: 2px 8px; color: var(--muted); font-size: 13px; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--warn); flex: none; }
+  .dot.deleted { background: var(--err); }
+
+  /* controls */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--panel); cursor: pointer; white-space: nowrap; text-decoration: none; }
+  .btn:hover { background: var(--sunk); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 550; }
+  .btn.primary:hover { filter: brightness(1.07); }
+  .btn.danger { color: var(--err); }
+  .btn.small { padding: 2px 8px; font-size: 13px; }
+  .btn.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+  .btn.ghost:hover { color: var(--ink); background: var(--sunk); }
+  .btn:disabled { opacity: .45; cursor: default; filter: none; }
+  .icon-btn { width: 28px; height: 28px; padding: 0; justify-content: center; border-color: transparent; background: transparent; color: var(--muted); }
+  .icon-btn:hover:not(:disabled) { background: var(--sunk); color: var(--ink); }
+  .count { background: var(--warn); color: var(--panel); border-radius: 10px; padding: 0 7px; font-size: 12px; font-weight: 650; }
+  input:not([type]), input[type=text], select, textarea { width: 100%; padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--panel); }
+  input[readonly] { background: var(--sunk); color: var(--muted); }
+  textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+  textarea.tall { min-height: 200px; }
+  .top select, .top input { width: auto; }
+  label.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
+  .switch { position: relative; width: 36px; height: 20px; flex: none; }
+  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .switch span { position: absolute; inset: 0; background: var(--line-strong); border-radius: 20px; transition: background .15s; }
+  .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; background: var(--panel); border-radius: 50%; transition: transform .15s; }
+  .switch input:checked + span { background: var(--accent); }
+  .switch input:checked + span::after { transform: translateX(16px); }
+  .switch input:focus-visible + span { box-shadow: var(--focus); }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; flex-wrap: wrap; }
+  .seg button { border: 0; background: var(--panel); padding: 6px 12px; cursor: pointer; border-right: 1px solid var(--line); }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); font-weight: 600; }
+
+  /* page parts */
+  .crumb { font-size: 13px; margin-bottom: 2px; }
+  .crumb a { color: var(--muted); }
+  h1 { font-size: 22px; line-height: 1.25; margin: 0; letter-spacing: -.015em; font-weight: 650; }
+  .title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .sub { color: var(--muted); margin: 4px 0 18px; max-width: 75ch; }
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); margin: 12px 0 22px; }
+  .tabs a { padding: 8px 12px; color: var(--muted); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs a.on { color: var(--ink); border-color: var(--accent); font-weight: 550; }
+  .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--sunk); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; text-decoration: none; }
+  .tag.changed, .tag.added, .tag.edited { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
+  .tag.removed, .tag.deleted { background: var(--err-soft); color: var(--err); border-color: transparent; }
+  .tag.live { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+  .form { display: grid; gap: 24px; }
+  .field > .name { display: block; font-weight: 600; margin-bottom: 2px; }
+  .field > .help { color: var(--muted); font-size: 13px; margin: 0 0 8px; max-width: 72ch; }
+  .field.bad > input, .field.bad > textarea, .field.bad > select, .row.bad input:not([type=checkbox]) { border-color: var(--err); }
+  .ferr { color: var(--err); font-size: 13px; margin-top: 6px; }
+  .fwarn { color: var(--warn); font-size: 13px; margin-top: 6px; }
+  .pair { display: grid; grid-template-columns: 200px 1fr; gap: 12px; }
+
+  /* lists of rows */
+  .rows { display: grid; gap: 6px; }
+  .row { display: grid; gap: 6px; align-items: center; }
+  .row.steps { grid-template-columns: 26px 1fr 170px auto auto; }
+  .row.items { grid-template-columns: 1fr 170px auto; }
+  .row.vars { grid-template-columns: minmax(120px, 220px) 1fr auto; }
+  .row .num { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+  .row .ops { display: flex; }
+  .row .ferr { grid-column: 1 / -1; margin: 0 0 4px; }
+  .row.steps .ferr { grid-column: 2 / -1; }
+  .addrow { margin-top: 8px; }
+
+  .picker { display: grid; gap: 6px; justify-items: start; }
+  .picked { display: flex; flex-wrap: wrap; gap: 6px; }
+  .picked.ordered { display: grid; gap: 4px; justify-self: stretch; max-width: 520px; }
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 10px; border-radius: 16px; background: var(--sunk); border: 1px solid var(--line); }
+  .picked.ordered .chip { border-radius: var(--radius); padding: 3px 4px 3px 10px; justify-content: space-between; }
+  .chip .x { width: 24px; height: 24px; }
+  .chip .muted { margin-left: 6px; font-size: 13px; }
+  .picker select { width: auto; min-width: 220px; }
+  .note { color: var(--muted); font-size: 13px; }
+  .muted { color: var(--muted); }
+
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; position: sticky; bottom: 0; background: color-mix(in srgb, var(--bg) 92%, transparent); backdrop-filter: blur(6px); padding: 12px 0; margin-top: 26px; border-top: 1px solid var(--line); }
+  .actions input { max-width: 320px; }
+  .banner { padding: 10px 14px; border-radius: var(--radius); margin: 0 0 16px; background: var(--sunk); border: 1px solid var(--line); }
+  .banner.ok { background: var(--accent-soft); border-color: transparent; }
+  .banner.err { background: var(--err-soft); border-color: transparent; }
+  .banner.warn { background: var(--warn-soft); border-color: transparent; }
+  .banner ul { margin: 6px 0 0; padding-left: 18px; }
+  .banner a { color: inherit; font-weight: 600; }
+
+  table.list { width: 100%; border-collapse: collapse; }
+  table.list td, table.list th { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  table.list th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  table.list tr.click { cursor: pointer; }
+  table.list tr.click:hover td, table.list tr.on td { background: var(--sunk); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin-bottom: 18px; }
+  .panel h2 { font-size: 16px; margin: 0 0 8px; }
+
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .prompt { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; min-width: 0; }
+  .prompt header { padding: 10px 14px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .prompt header b { margin-right: auto; }
+  .prompt pre { margin: 0; padding: 14px; white-space: pre-wrap; word-break: break-word; font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; max-height: 70vh; overflow: auto; }
+  .parts { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--sunk); }
+  .parts .tag { background: var(--panel); color: var(--ink); }
+  .history { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
+  .diff { font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 0; white-space: pre-wrap; word-break: break-word; }
+  .diff div { padding: 0 14px; }
+  .diff .plus { background: color-mix(in srgb, var(--ok) 16%, transparent); }
+  .diff .minus { background: color-mix(in srgb, var(--err) 13%, transparent); color: var(--muted); text-decoration: line-through; }
+  .empty-state { padding: 40px 0; max-width: 60ch; }
+  .empty-state h1 { margin-bottom: 8px; }
   .hidden { display: none !important; }
-  @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } .cols { grid-template-columns: 1fr; } }
+
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: 1fr; }
+    nav.rail { border-right: 0; border-bottom: 1px solid var(--line); position: static; height: auto; }
+    main { padding: 18px 16px 40px; }
+    .compare, .pair, .history { grid-template-columns: 1fr; }
+    .row.steps { grid-template-columns: 22px 1fr auto; }
+    .row.items { grid-template-columns: 1fr auto; }
+    .row.steps .tool, .row.items .tool { grid-column: 2 / 3; }
+    .row.vars { grid-template-columns: 1fr auto; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>sopserve</h1>
+<div class="top">
+  <span class="brand">sopserve</span>
   <select id="ws" aria-label="Workspace"></select>
-  <input id="new-ws" placeholder="new workspace" size="16">
-  <button id="new-ws-btn">Open</button>
-  <span style="flex:1"></span>
-  <input id="author" placeholder="your name" size="14" aria-label="Your name">
-  <span id="token-box" class="hidden"><input id="token" type="password" placeholder="API token" size="18"> <button id="token-btn" class="primary">Use token</button></span>
-</header>
-<main>
-  <aside>
-    <div class="row"><button id="show-draft" class="primary">Unpublished changes</button><button id="new-file">New file</button></div>
-    <div id="files"></div>
-    <h2>Agent prompts</h2><ul class="list" id="agents"></ul>
-    <h2>Releases</h2><ul class="list" id="releases"></ul>
-  </aside>
-  <section class="view" id="view"><p class="muted">Pick a workspace.</p></section>
-</main>
+  <span id="new-ws-box" class="hidden"><input id="new-ws" placeholder="Workspace name" size="18" aria-label="New workspace name"> <button class="btn small" id="new-ws-ok">Create</button> <button class="btn small ghost" id="new-ws-cancel">Cancel</button></span>
+  <button class="btn small ghost" id="new-ws-btn">New workspace</button>
+  <span class="spacer"></span>
+  <input id="author" placeholder="Your name" size="14" aria-label="Your name, recorded with changes">
+  <button class="btn" id="changes-btn">Unpublished changes</button>
+  <button class="btn icon-btn" id="theme" title="Switch between light and dark" aria-label="Switch between light and dark">◐</button>
+</div>
+<div class="shell">
+  <nav class="rail" id="rail" aria-label="Workspace contents"></nav>
+  <main id="main"><div class="page"><p class="muted">Loading…</p></div></main>
+</div>
 <script>
+"use strict";
+// ---------------------------------------------------------------------------------
+// helpers
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (v === null || v === undefined || v === false) continue;
+    if (k === "class") n.className = v;
+    else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else if (["value", "checked", "disabled", "readOnly", "selected"].includes(k)) n[k] = v;
+    else n.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat(Infinity)) if (kid !== null && kid !== undefined && kid !== false && kid !== "") n.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  return n;
+}
 const local = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
 };
-const state = { ws: local.get("sopserve.ws") || "", draft: null, files: [], releases: [], selected: null };
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const when = (t) => t ? new Date(t).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+const slug = (s) => s.toLowerCase().normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 100);
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+const KIND = {
+  agent: { one: "Agent", many: "Agents", route: "agents", list: "agents", api: "agents" },
+  base: { one: "Shared instruction", many: "Shared instructions", route: "shared", list: "bases", api: "bases" },
+  procedure: { one: "Procedure", many: "Procedures", route: "procedures", list: "procedures", api: "procedures" },
+  settings: { one: "Settings", many: "Settings", route: "settings", list: null, api: null },
+};
+const PLATFORMS = [["livekit", "LiveKit", "Agent name"], ["vapi", "Vapi", "Assistant ID"], ["elevenlabs", "ElevenLabs", "Agent ID"], ["retell", "Retell", "Agent ID"]];
+const platformName = (p) => (PLATFORMS.find((x) => x[0] === p) || [p, p])[1];
+const DELIVERY = [
+  ["prompt", "Whole procedure in the prompt", "Everything goes in the agent's prompt. Use this unless the agent has a get_sop tool."],
+  ["auto", "Rules in the prompt, steps on request", "The name, when it applies, never and warning signs stay in the prompt. The goal, guidance and steps are fetched with the agent's get_sop tool."],
+  ["tool", "Only the name in the prompt, the rest on request", "The prompt names the procedure and when it applies. Everything else is fetched with the agent's get_sop tool."],
+];
+
+// ---------------------------------------------------------------------------------
+// state and API
+const S = { ws: local.get("sopserve.ws") || "", workspaces: [], cfg: null, draft: null, releases: [], releaseCache: {}, form: null, flash: null };
 
 async function api(method, path, body) {
-  const headers = { "Content-Type": "application/json" };
-  const token = local.get("sopserve.token");
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (res.status === 401) { $("token-box").classList.remove("hidden"); throw new Error("Enter an API token to continue."); }
+  const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = (res.headers.get("content-type") || "").includes("json") ? await res.json() : await res.text();
-  if (!res.ok) { const err = new Error(data.detail || `HTTP ${res.status}`); err.data = data; throw err; }
+  if (!res.ok) {
+    const detail = data && data.detail;
+    const err = new Error(typeof detail === "string" ? detail.charAt(0).toUpperCase() + detail.slice(1) + "." : Array.isArray(detail) ? "Some values are missing or have the wrong type." : `The server answered ${res.status}.`);
+    err.status = res.status; err.data = data; throw err;
+  }
   return data;
 }
-const wsPath = (p = "") => `/v1/workspaces/${encodeURIComponent(state.ws)}${p}`;
-const filePath = (p) => p.split("/").map(encodeURIComponent).join("/");
+const wsUrl = (p = "") => `/v1/workspaces/${encodeURIComponent(S.ws)}${p}`;
 const author = () => $("author").value.trim() || null;
-const when = (t) => new Date(t).toLocaleString();
 
-function issuesHtml(issues) {
-  if (!issues || !issues.length) return "";
-  return `<ul class="issues">${issues.map((i) => `<li class="${esc(i.severity)}"><b>${esc(i.code)}</b> ${i.path ? `<span class="mono">${esc(i.path)}</span>: ` : ""}${esc(i.message)}</li>`).join("")}</ul>`;
+async function loadAll() {
+  const [cfg, draft, releases] = await Promise.all([api("GET", wsUrl("/config")), api("GET", wsUrl("/draft")), api("GET", wsUrl("/releases"))]);
+  S.cfg = cfg; S.draft = draft; S.releases = releases;
 }
-function errorHtml(e) { return e.data && e.data.issues ? issuesHtml(e.data.issues) : `<div class="msg err">${esc(e.message)}</div>`; }
-function showError(e, el) { if (el) el.innerHTML = errorHtml(e); else $("view").insertAdjacentHTML("afterbegin", errorHtml(e)); }
-// Two clicks instead of a browser confirm dialog.
-function confirmClick(btn, label, action) {
-  btn.addEventListener("click", () => {
-    if (btn.dataset.armed) return action();
-    btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = label;
-    setTimeout(() => { delete btn.dataset.armed; btn.textContent = old; }, 3000);
-  });
+async function liveRelease() {
+  const n = S.draft && S.draft.release;
+  if (!n) return null;
+  if (!S.releaseCache[n]) S.releaseCache[n] = await api("GET", wsUrl(`/releases/${n}`));
+  return S.releaseCache[n];
 }
-
-// --- loading ------------------------------------------------------------------
-
-async function loadWorkspaces() {
-  try {
-    const list = await api("GET", "/v1/workspaces");
-    $("token-box").classList.add("hidden");
-    const names = list.map((w) => w.workspace);
-    if (state.ws && !names.includes(state.ws)) names.push(state.ws);
-    if (!state.ws && names.length) state.ws = names[0];
-    $("ws").innerHTML = names.map((n) => `<option ${n === state.ws ? "selected" : ""}>${esc(n)}</option>`).join("") || `<option value="">no workspaces</option>`;
-    if (state.ws) await refresh();
-  } catch (e) { $("view").innerHTML = errorHtml(e); }
+function itemName(kind, id) {
+  if (kind === "settings" || kind === "config") return "Settings";
+  if (kind === "procedure" || kind === "sop") { const p = S.cfg && S.cfg.procedures.find((x) => x.id === id); return p ? p.name : id; }
+  return id;
 }
+const itemHref = (kind, id) => kind === "settings" ? "#/settings" : `#/${KIND[kind].route}/${encodeURIComponent(id)}`;
+const changeOf = (kind, id) => S.draft && S.draft.items.find((i) => i.kind === kind && i.id === id);
+const kindOfComponent = (k) => ({ agent: "agent", base: "base", sop: "procedure", config: "settings" }[k]);
 
-async function refresh() {
-  local.set("sopserve.ws", state.ws);
-  const [files, draft, releases] = await Promise.all([api("GET", wsPath("/files")), api("GET", wsPath("/draft")), api("GET", wsPath("/releases"))]);
-  state.files = files.files; state.draft = draft; state.releases = releases;
-  renderSidebar();
+// ---------------------------------------------------------------------------------
+// routing: #/agents/<id>[/prompt|/history], #/shared/<id>, #/procedures/<id>, #/settings, #/changes, #/releases/<n>
+function route() {
+  const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  return { section: parts[0] || "", id: parts[1] || "", tab: parts[2] || "" };
 }
-
-function group(path) {
-  if (path === "sopc.yaml") return "Config";
-  for (const [dir, name] of [["agents/", "Agents"], ["bases/", "Bases"], ["procedures/", "Procedures"]]) if (path.startsWith(dir)) return name;
-  return "Other";
+function go(...parts) {
+  const hash = "#/" + parts.filter((p) => p !== undefined && p !== "").map((p) => encodeURIComponent(p)).join("/");
+  if (location.hash === hash) render(); else location.hash = hash;
 }
-
-function renderSidebar() {
-  const groups = { Agents: [], Bases: [], Procedures: [], Config: [], Other: [] };
-  const changed = new Map(state.draft.files.map((f) => [f.path, f.change]));
-  state.files.forEach((f) => groups[group(f.path)].push(f));
-  $("files").innerHTML = Object.entries(groups).filter(([, fs]) => fs.length).map(([g, fs]) => `<h2>${g}</h2><ul class="list">${fs.map((f) =>
-    `<li data-path="${esc(f.path)}" class="${state.selected === "file:" + f.path ? "active" : ""}"><span class="mono">${esc(f.path.includes("/") ? f.path.slice(f.path.indexOf("/") + 1) : f.path)}</span><span>${changed.has(f.path) ? `<span class="badge s-${changed.get(f.path)}">${changed.get(f.path)}</span> ` : ""}<span class="badge">v${f.version}</span></span></li>`).join("")}</ul>`).join("")
-    || `<h2>Files</h2><p class="muted small">No files yet. Start with <span class="mono">sopc.yaml</span> (it can be empty).</p>`;
-  $("files").querySelectorAll("li").forEach((li) => li.addEventListener("click", () => openFile(li.dataset.path)));
-
-  $("agents").innerHTML = state.draft.agents.map((a) => `<li data-agent="${esc(a.agent)}" class="${state.selected === "agent:" + a.agent ? "active" : ""}"><span>${esc(a.agent)}</span>${a.status === "unchanged" ? "" : `<span class="badge s-${a.status}">${a.status}</span>`}</li>`).join("") || `<li class="muted small">none</li>`;
-  $("agents").querySelectorAll("li[data-agent]").forEach((li) => li.addEventListener("click", () => openAgent(li.dataset.agent)));
-
-  $("releases").innerHTML = state.releases.map((r) => `<li data-n="${r.number}" class="${state.selected === "release:" + r.number ? "active" : ""}"><span>#${r.number} <span class="muted small">${esc(r.note || "")}</span></span>${r.current ? `<span class="badge s-live">live</span>` : ""}</li>`).join("") || `<li class="muted small">none yet</li>`;
-  $("releases").querySelectorAll("li[data-n]").forEach((li) => li.addEventListener("click", () => openRelease(+li.dataset.n)));
-
-  const pending = state.draft.files.length;
-  $("show-draft").textContent = pending ? `Unpublished changes (${pending})` : "Unpublished changes";
-}
-
-function select(key) { state.selected = key; renderSidebar(); }
-
-// --- views --------------------------------------------------------------------
-
-function showDraft(message) {
-  select("draft");
-  const d = state.draft;
-  const files = d.files.length
-    ? `<table>${d.files.map((f) => `<tr><td class="mono">${esc(f.path)}</td><td class="s-${f.change}">${f.change}</td><td class="muted">${f.released_version ? "v" + f.released_version : "new"} → ${f.version ? "v" + f.version : "deleted"}</td></tr>`).join("")}</table>`
-    : `<p class="muted">No unpublished changes.</p>`;
-  const agents = d.agents.filter((a) => a.status !== "unchanged");
-  $("view").innerHTML = `${message || ""}<div class="card"><h3>Unpublished changes</h3>
-    <p class="muted">${d.release ? `Live: release #${d.release}.` : "Nothing is live yet."} Saved edits are drafts; agents get them only after you publish.</p>
-    ${issuesHtml(d.issues)}${files}
-    ${agents.length ? `<h2>Agents affected</h2><ul class="list">${agents.map((a) => `<li data-agent="${esc(a.agent)}"><span>${esc(a.agent)} <span class="muted small">${esc(a.platform_ref)}</span></span><span class="badge s-${a.status}">${a.status}</span></li>`).join("")}</ul>` : ""}
-    <div class="row"><input id="pub-note" placeholder="What changed? (optional)" size="40"><button id="publish" class="primary" ${d.files.length ? "" : "disabled"}>Publish</button></div><div id="pub-msg"></div></div>`;
-  $("view").querySelectorAll("li[data-agent]").forEach((li) => li.addEventListener("click", () => openAgent(li.dataset.agent)));
-  $("publish").addEventListener("click", async () => {
-    try {
-      const r = await api("POST", wsPath("/releases"), { author: author(), note: $("pub-note").value.trim() || null });
-      await refresh();
-      showDraft(`<div class="msg ok">${r.created ? `Published release #${r.release.number}. Agents get it on their next call.` : "Nothing new to publish."}</div>`);
-    } catch (e) { showError(e, $("pub-msg")); }
-  });
-}
-
-async function openFile(path, version, message) {
-  select("file:" + path);
-  try {
-    const [file, history] = await Promise.all([
-      api("GET", wsPath(`/files/${filePath(path)}${version ? `?version=${version}` : ""}`)), api("GET", wsPath(`/history/${filePath(path)}`)),
-    ]);
-    const old = file.version !== history[0].version;
-    $("view").innerHTML = `<div class="card"><div class="row" style="justify-content:space-between"><h3 class="mono" style="margin:0">${esc(path)}</h3>
-      <select id="ver" aria-label="Version">${history.map((h) => `<option value="${h.version}" ${h.version === file.version ? "selected" : ""}>v${h.version}${h.deleted ? " (deleted)" : ""} · ${when(h.created_at)}${h.author ? " · " + esc(h.author) : ""}${h.note ? " · " + esc(h.note) : ""}</option>`).join("")}</select></div>
-      ${old ? `<div class="msg">Viewing v${file.version}${file.deleted ? " (deleted)" : ""}. Saving restores this content as a new version.</div>` : ""}
-      <textarea id="content" spellcheck="false">${esc(file.content ?? "")}</textarea>
-      <div class="row"><input id="note" placeholder="Note (optional)" size="40"><button id="save" class="primary">Save draft</button><button id="del" class="danger">Delete</button></div>
-      <div id="file-msg">${message || ""}</div></div>`;
-    $("ver").addEventListener("change", (e) => openFile(path, +e.target.value));
-    $("save").addEventListener("click", () => saveFile(path, $("content").value));
-    confirmClick($("del"), "Click again to delete", () => saveFile(path, null));
-  } catch (e) { $("view").innerHTML = errorHtml(e); }
-}
-
-async function saveFile(path, content) {
-  try {
-    const r = await api("POST", wsPath("/files"), { changes: { [path]: content }, author: author(), note: $("note").value.trim() || null });
-    await refresh();
-    if (content === null) return showDraft(`<div class="msg ok">Deleted <span class="mono">${esc(path)}</span> in the draft.</div>`);
-    await openFile(path, undefined, `<div class="msg ok">${r.changed.length ? `Saved v${r.changed[0].version} as a draft. Publish to make it live.` : "No changes."}</div>`);
-  } catch (e) { showError(e, $("file-msg")); }
-}
-
-function newFile() {
-  select("new");
-  $("view").innerHTML = `<div class="card"><h3>New file</h3>
-    <div class="row"><select id="nf-dir" aria-label="Folder"><option value="agents/">agents/</option><option value="bases/">bases/</option><option value="procedures/">procedures/</option><option value="">(root)</option></select>
-    <input id="nf-name" placeholder="name.yaml or name.md" size="28"></div>
-    <textarea id="content" spellcheck="false" placeholder="File content"></textarea>
-    <div class="row"><input id="note" placeholder="Note (optional)" size="40"><button id="create" class="primary">Create draft</button></div><div id="file-msg"></div></div>`;
-  $("create").addEventListener("click", () => {
-    const name = $("nf-name").value.trim();
-    if (!name) { $("file-msg").innerHTML = `<div class="msg err">Give the file a name.</div>`; return; }
-    saveFile($("nf-dir").value + name, $("content").value);
-  });
-}
-
-async function openAgent(id) {
-  select("agent:" + id);
-  const a = state.draft.agents.find((x) => x.agent === id);
-  let live = null;
-  try { if (state.draft.release) live = (await api("GET", wsPath(`/releases/${state.draft.release}`))).agents[id] || null; } catch (e) { return showError(e); }
-  const comps = (list, title) => `<h2>${title}</h2><table>${list.map((c) => `<tr><td>${c.kind}</td><td class="mono">${esc(c.path || c.id)}</td><td>v${c.version ?? "?"}</td></tr>`).join("")}</table>`;
-  $("view").innerHTML = `<div class="card"><h3>${esc(id)} <span class="muted small">${esc(a.platform_ref)}</span> ${a.status === "unchanged" ? "" : `<span class="badge s-${a.status}">${a.status}</span>`}</h3>
-    <div class="cols"><div>${a.prompt !== null ? comps(a.components, "Draft components") : ""}</div><div>${live ? comps(live.components, `Live components (release #${state.draft.release})`) : ""}</div></div>
-    <div class="cols" style="margin-top:12px"><div><h2>Draft prompt</h2>${a.prompt !== null ? `<pre>${esc(a.prompt)}</pre>` : `<p class="muted">Removed in the draft.</p>`}</div>
-    <div><h2>Live prompt</h2>${live ? `<pre>${esc(live.prompt)}</pre>` : `<p class="muted">Not live yet.</p>`}</div></div></div>`;
-}
-
-async function openRelease(n, message) {
-  select("release:" + n);
-  try {
-    const r = await api("GET", wsPath(`/releases/${n}`));
-    $("view").innerHTML = `<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Release #${r.number} ${r.current ? `<span class="badge s-live">live</span>` : ""}</h3>
-      ${r.current ? "" : `<button id="activate" class="primary">Make live</button>`}</div>
-      <p class="muted">${when(r.created_at)}${r.author ? " · " + esc(r.author) : ""}${r.note ? " · " + esc(r.note) : ""}</p><div id="rel-msg">${message || ""}</div>
-      <h2>Agents</h2><table>${Object.entries(r.agents).map(([id, a]) => `<tr><td>${esc(id)}</td><td class="muted">${esc(a.platform_ref)}</td><td class="mono small">${a.hash.slice(0, 12)}</td></tr>`).join("")}</table>
-      <h2>Files</h2><table>${Object.entries(r.files).map(([p, v]) => `<tr><td class="mono"><a href="#" data-path="${esc(p)}" data-v="${v}">${esc(p)}</a></td><td>v${v}</td></tr>`).join("")}</table></div>`;
-    $("view").querySelectorAll("a[data-path]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); openFile(el.dataset.path, +el.dataset.v); }));
-    if ($("activate")) confirmClick($("activate"), `Click again to serve #${n}`, async () => {
-      try { await api("POST", wsPath(`/releases/${n}/activate`)); await refresh(); await openRelease(n, `<div class="msg ok">Release #${n} is live.</div>`); }
-      catch (e) { showError(e, $("rel-msg")); }
-    });
-  } catch (e) { $("view").innerHTML = errorHtml(e); }
-}
-
-// --- wiring -------------------------------------------------------------------
-
-$("author").value = local.get("sopserve.author") || "";
-$("author").addEventListener("change", () => local.set("sopserve.author", $("author").value.trim()));
-$("ws").addEventListener("change", async (e) => { state.ws = e.target.value; await refresh(); showDraft(); });
-$("new-ws-btn").addEventListener("click", async () => {
-  const name = $("new-ws").value.trim();
-  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)) { $("view").innerHTML = `<div class="msg err">Workspace names use letters, digits, '.', '_' and '-'.</div>`; return; }
-  state.ws = name; $("new-ws").value = ""; await loadWorkspaces(); if (state.draft) showDraft();
+// Leaving a form with unsaved edits asks inline, not with a browser dialog.
+window.addEventListener("hashchange", () => {
+  if (S.form && S.form.dirty && S.form.hash !== location.hash) {
+    const target = location.hash;
+    history.replaceState(null, "", S.form.hash);
+    const bar = $("leave-bar");
+    if (bar) {
+      bar.classList.remove("hidden");
+      bar.querySelector("[data-leave]").onclick = () => { S.form.dirty = false; location.hash = target; };
+      bar.scrollIntoView({ block: "nearest" });
+    }
+    return;
+  }
+  render();
 });
-$("token-btn").addEventListener("click", async () => { local.set("sopserve.token", $("token").value.trim()); $("token").value = ""; await loadWorkspaces(); if (state.draft) showDraft(); });
-$("show-draft").addEventListener("click", () => state.draft && showDraft());
-$("new-file").addEventListener("click", () => state.ws && newFile());
-loadWorkspaces().then(() => state.draft && showDraft());
+
+// ---------------------------------------------------------------------------------
+// frame
+function renderTop() {
+  const names = S.workspaces.map((w) => w.workspace);
+  if (S.ws && !names.includes(S.ws)) names.push(S.ws);
+  $("ws").replaceChildren(...(names.length ? names.map((n) => el("option", { value: n, selected: n === S.ws }, n)) : [el("option", { value: "" }, "No workspaces yet")]));
+  const n = S.draft ? S.draft.items.length : 0;
+  $("changes-btn").replaceChildren("Unpublished changes", n ? el("span", { class: "count", "aria-label": `${n} changes` }, n) : "");
+}
+
+function renderRail() {
+  const r = route();
+  if (!S.cfg) { $("rail").replaceChildren(); return; }
+  const cur = "#/" + r.section + (r.id && !["settings", "releases"].includes(r.section) ? "/" + encodeURIComponent(r.id) : "");
+  const link = (href, label, kind, id, extra) => {
+    const c = kind && changeOf(kind, id);
+    return el("a", { class: "item" + (href === cur ? " active" : ""), href, "aria-current": href === cur ? "page" : null },
+      el("span", { class: "label" }, label), extra, c ? el("span", { class: "dot " + c.change, title: `${c.change}, not published` }) : "");
+  };
+  const group = (kind, items) => el("div", { class: "rail-group" },
+    el("div", { class: "rail-head" }, el("h2", {}, el("a", { href: `#/${KIND[kind].route}`, style: "color:inherit;text-decoration:none" }, KIND[kind].many)),
+      el("button", { class: "btn small ghost", onclick: () => go(KIND[kind].route, "new"), "aria-label": `New ${KIND[kind].one.toLowerCase()}` }, "+ New")),
+    items.length ? items.map((it) => link(itemHref(kind, it.id), kind === "procedure" ? it.name : it.id, kind, it.id)) : el("div", { class: "empty" }, "None yet"));
+  $("rail").replaceChildren(
+    group("agent", S.cfg.agents),
+    group("base", S.cfg.bases),
+    group("procedure", [...S.cfg.procedures].sort((a, b) => a.name.localeCompare(b.name))),
+    el("div", { class: "rail-group" },
+      link("#/settings", "Settings", "settings", "settings"),
+      link("#/releases", "Releases", null, null, S.draft && S.draft.release ? el("span", { class: "tag live" }, `#${S.draft.release} live`) : "")));
+}
+
+function page(wide, ...kids) { $("main").replaceChildren(el("div", { class: "page" + (wide ? " wide" : "") }, ...kids)); window.scrollTo(0, 0); }
+function flash() {
+  const f = S.flash; S.flash = null;
+  return f ? el("div", { class: "banner " + f.type, role: "status" }, f.text) : "";
+}
+
+function render() {
+  if (!S.cfg) return;
+  renderTop(); renderRail();
+  const r = route();
+  S.form = null;
+  if (r.section === "agents") return r.id ? agentPage(r.id, r.tab) : listPage("agent");
+  if (r.section === "shared") return r.id ? basePage(r.id, r.tab) : listPage("base");
+  if (r.section === "procedures") return r.id ? procedurePage(r.id, r.tab) : listPage("procedure");
+  if (r.section === "settings") return settingsPage(r.id);
+  if (r.section === "releases") return r.id ? releasePage(+r.id) : releasesPage();
+  if (r.section === "changes") return changesPage();
+  return homePage();
+}
+
+function issueList(issues, here) {
+  return el("ul", {}, issues.map((i) => {
+    const elsewhere = i.kind && KIND[i.kind] && !(here && i.kind === here.kind && i.id === here.id);
+    return el("li", {}, elsewhere ? [el("a", { href: itemHref(i.kind, i.id) }, i.kind === "settings" ? "Settings" : `${KIND[i.kind].one} ${itemName(i.kind, i.id)}`), ": "] : "", i.text || i.message);
+  }));
+}
+function errorBanner(e, lead = "This change can't be saved yet:") {
+  const issues = e.data && e.data.issues;
+  if (!issues || !issues.length) return el("div", { class: "banner err", role: "alert" }, e.message);
+  return el("div", { class: "banner err", role: "alert" }, lead, issueList(issues));
+}
+
+// ---------------------------------------------------------------------------------
+// forms
+function makeForm(kind, id, model, isNew) {
+  S.form = { kind, id, model, isNew, dirty: false, hash: location.hash, errors: [], rerender: null };
+  return S.form;
+}
+function touch(f) { f.dirty = true; const s = $("save-state"); if (s) s.textContent = "Unsaved edits"; }
+const errsFor = (f, key, index) => f.errors.filter((i) => i.field === key && (index === undefined ? i.index === null || i.index === undefined : i.index === index));
+const errNodes = (f, key, index) => errsFor(f, key, index).map((i) => el("div", { class: i.severity === "warning" ? "fwarn" : "ferr" }, i.text || i.message));
+
+function field(f, key, name, help, control) {
+  const bad = errsFor(f, key).some((i) => i.severity !== "warning");
+  return el("div", { class: "field" + (bad ? " bad" : ""), "data-field": key },
+    el("label", { class: "name", for: `f-${key}` }, name), help ? el("p", { class: "help" }, help) : "", control, errNodes(f, key));
+}
+function input(f, key, attrs = {}) {
+  return el("input", { id: `f-${key}`, value: f.model[key] ?? "", oninput: (e) => { f.model[key] = e.target.value; touch(f); }, ...attrs });
+}
+function area(f, key, attrs = {}) {
+  return el("textarea", { id: `f-${key}`, value: f.model[key] ?? "", oninput: (e) => { f.model[key] = e.target.value; touch(f); }, ...attrs });
+}
+function toggle(f, key, label) {
+  return el("label", { class: "check" }, el("span", { class: "switch" },
+    el("input", { type: "checkbox", id: `f-${key}`, checked: !!f.model[key], onchange: (e) => { f.model[key] = e.target.checked; touch(f); } }), el("span")), label);
+}
+function choose(f, key, options, after) {
+  return el("select", { id: `f-${key}`, onchange: (e) => { f.model[key] = e.target.value; touch(f); if (after) after(); } },
+    options.map(([v, label]) => el("option", { value: v, selected: f.model[key] === v }, label)));
+}
+
+// Chosen values as chips (or an ordered list), and a menu to add more.
+function picker(f, key, options, { ordered = false, empty = "None", id } = {}) {
+  const box = el("div", { class: "picker", id: id || `f-${key}` });
+  const draw = () => {
+    const values = f.model[key];
+    const label = (v) => { const o = options.find((x) => x.value === v); return o ? o.label : v; };
+    const hint = (v) => { const o = options.find((x) => x.value === v); return o && o.hint; };
+    const move = (i, d) => { values.splice(i + d, 0, values.splice(i, 1)[0]); touch(f); draw(); };
+    const rest = options.filter((o) => !values.includes(o.value));
+    box.replaceChildren(
+      values.length ? el("div", { class: "picked" + (ordered ? " ordered" : "") }, values.map((v, i) => el("span", { class: "chip" },
+        el("span", {}, label(v), hint(v) ? el("span", { class: "muted" }, hint(v)) : ""),
+        el("span", {},
+          ordered ? el("button", { class: "btn icon-btn x", type: "button", disabled: i === 0, "aria-label": `Move ${label(v)} up`, onclick: () => move(i, -1) }, "↑") : "",
+          ordered ? el("button", { class: "btn icon-btn x", type: "button", disabled: i === values.length - 1, "aria-label": `Move ${label(v)} down`, onclick: () => move(i, 1) }, "↓") : "",
+          el("button", { class: "btn icon-btn x", type: "button", "aria-label": `Remove ${label(v)}`, onclick: () => { values.splice(i, 1); touch(f); draw(); } }, "×"))))) : el("div", { class: "note" }, empty),
+      rest.length ? el("select", { "aria-label": "Add", onchange: (e) => { if (e.target.value) { values.push(e.target.value); touch(f); draw(); } } },
+        el("option", { value: "" }, "Add…"), rest.map((o) => el("option", { value: o.value, disabled: !!o.disabled }, o.label + (o.hint ? ` (${o.hint})` : "")))) : "");
+  };
+  draw();
+  return box;
+}
+
+// Name/value rows. Rows keep their own order and blanks while editing; the model is rebuilt from them.
+function varRows(f, key, placeholder) {
+  const box = el("div", { id: `f-${key}` });
+  const rows = Object.entries(f.model[key] || {}).map(([k, v]) => ({ k, v }));
+  const sync = () => { const out = {}; rows.forEach((r) => { if (r.k.trim()) out[r.k.trim()] = r.v; }); f.model[key] = out; touch(f); };
+  const draw = () => {
+    const names = rows.map((r) => r.k.trim());
+    box.replaceChildren(
+      el("div", { class: "rows" }, rows.map((r, i) => {
+        const dup = r.k.trim() && names.indexOf(r.k.trim()) !== i;
+        return el("div", { class: "row vars" + (dup ? " bad" : "") },
+          el("input", { value: r.k, placeholder: "name", "aria-label": "Variable name", oninput: (e) => { r.k = e.target.value; sync(); } }),
+          el("input", { value: r.v, placeholder, "aria-label": `Value of ${r.k || "variable"}`, oninput: (e) => { r.v = e.target.value; sync(); } }),
+          el("button", { class: "btn icon-btn", type: "button", "aria-label": `Remove ${r.k || "variable"}`, onclick: () => { rows.splice(i, 1); sync(); draw(); } }, "×"),
+          dup ? el("div", { class: "ferr" }, "This name is used twice; the last value wins.") : "");
+      })),
+      el("button", { class: "btn small addrow", type: "button", onclick: () => { rows.push({ k: "", v: "" }); draw(); box.querySelector(".row:last-child input").focus(); } }, "+ Add variable"));
+  };
+  draw();
+  return box;
+}
+
+// Ordered rows of text with an optional tool, and "required" for steps.
+function stepRows(f, key, { steps = false, placeholder, noun }) {
+  const box = el("div", { id: `f-${key}` });
+  const draw = () => {
+    const list = f.model[key];
+    const move = (i, d) => { list.splice(i + d, 0, list.splice(i, 1)[0]); touch(f); draw(); };
+    box.replaceChildren(
+      el("div", { class: "rows" }, list.map((s, i) => el("div", { class: "row " + (steps ? "steps" : "items") + (errsFor(f, key, i).length ? " bad" : "") },
+        steps ? el("span", { class: "num" }, `${i + 1}.`) : "",
+        el("input", { value: s.text, placeholder, "aria-label": `${noun} ${i + 1}`, oninput: (e) => { s.text = e.target.value; touch(f); } }),
+        el("input", { class: "tool", value: s.tool || "", placeholder: "Tool (optional)", "aria-label": `Tool for ${noun.toLowerCase()} ${i + 1}`, oninput: (e) => { s.tool = e.target.value.trim() || null; touch(f); } }),
+        steps ? el("label", { class: "check", title: "The agent must call the tool" }, el("input", { type: "checkbox", checked: !!s.required, onchange: (e) => { s.required = e.target.checked; touch(f); } }), "Required") : "",
+        el("span", { class: "ops" },
+          el("button", { class: "btn icon-btn", type: "button", disabled: i === 0, "aria-label": `Move ${noun.toLowerCase()} ${i + 1} up`, onclick: () => move(i, -1) }, "↑"),
+          el("button", { class: "btn icon-btn", type: "button", disabled: i === list.length - 1, "aria-label": `Move ${noun.toLowerCase()} ${i + 1} down`, onclick: () => move(i, 1) }, "↓"),
+          el("button", { class: "btn icon-btn", type: "button", "aria-label": `Remove ${noun.toLowerCase()} ${i + 1}`, onclick: () => { list.splice(i, 1); touch(f); draw(); } }, "×")),
+        errNodes(f, key, i)))),
+      el("button", { class: "btn small addrow", type: "button", onclick: () => {
+        list.push({ text: "", tool: null, required: false }); touch(f); draw();
+        const texts = box.querySelectorAll(".row > input:not(.tool)"); texts[texts.length - 1].focus();
+      } }, `+ Add ${noun.toLowerCase()}`));
+  };
+  draw();
+  return box;
+}
+
+// Who a shared instruction or procedure applies to. For shared instructions an empty list means
+// "agents that include it", so "Specific agents" is a mode kept while editing.
+function audience(f, { base }) {
+  const box = el("div", { id: "f-agents" });
+  let mode = f.model.agents === "*" ? "all" : f.model.agents.length || !base ? "some" : "inherit";
+  const opts = () => S.cfg.agents.map((a) => ({ value: a.id, label: a.id }));
+  const draw = () => {
+    const choices = base ? [["inherit", "Agents that include it"], ["all", "All agents"], ["some", "Specific agents"]] : [["all", "All agents"], ["some", "Specific agents"]];
+    const help = {
+      inherit: "Only agents that list it under their shared instructions get it.",
+      all: "Every agent gets it, including agents added later.",
+      some: base ? "These agents get it, as well as any agent that lists it under its shared instructions." : "Only these agents follow it.",
+    }[mode];
+    box.replaceChildren(
+      el("div", { class: "seg", role: "group", "aria-label": "Applies to" }, choices.map(([v, label]) => el("button", { type: "button", "aria-pressed": String(mode === v), onclick: () => {
+        mode = v;
+        f.model.agents = v === "all" ? "*" : v === "some" && Array.isArray(f.model.agents) ? f.model.agents : [];
+        if (v === "inherit") f.model.exclude = [];
+        touch(f); draw();
+      } }, label))),
+      el("p", { class: "help", style: "margin:8px 0" }, help),
+      mode === "some" ? picker(f, "agents", opts(), { empty: "No agents chosen yet.", id: "f-agents-list" }) : "",
+      mode !== "inherit" ? el("div", { style: "margin-top:12px" }, el("div", { class: "note", style: "margin-bottom:6px" }, "Except"),
+        picker(f, "exclude", opts(), { empty: "No exceptions.", id: "f-exclude" }), errNodes(f, "exclude")) : "");
+  };
+  draw();
+  return box;
+}
+
+// Two clicks instead of a browser confirm dialog.
+function armed(btn, label, action) {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.armed) { delete btn.dataset.armed; return action(); }
+    btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = label;
+    setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = old; } }, 4000);
+  });
+}
+
+function actionBar(f, { onSave, onDelete }) {
+  const note = el("input", { placeholder: "What changed? (optional)", "aria-label": "Note for this change" });
+  const save = () => onSave(note.value.trim() || null);
+  const del = onDelete ? el("button", { class: "btn danger", type: "button" }, "Delete") : "";
+  if (del) armed(del, "Click again to delete", onDelete);
+  note.addEventListener("keydown", (e) => { if (e.key === "Enter") save(); });
+  return [
+    el("div", { class: "actions" },
+      el("button", { class: "btn primary", type: "button", onclick: save }, f.isNew ? `Create ${KIND[f.kind].one.toLowerCase()}` : "Save draft"), note,
+      el("span", { class: "note", id: "save-state" }, f.dirty ? "Unsaved edits" : f.isNew ? "" : "Saved edits are drafts until you publish."),
+      el("span", { class: "spacer" }), del),
+    el("div", { class: "banner warn hidden", id: "leave-bar", role: "alert" }, "You have unsaved edits. ",
+      el("button", { class: "btn small", type: "button", onclick: save }, "Save draft"), " ",
+      el("button", { class: "btn small ghost", type: "button", "data-leave": "1" }, "Discard and leave")),
+  ];
+}
+
+async function saveItem(f, data, note) {
+  const body = { ...data, author: author(), note };
+  const id = f.isNew ? data.id : f.id;
+  if (f.kind !== "settings" && f.isNew && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$/.test(id || "")) {
+    f.errors = [{ field: "id", severity: "error", text: id ? "Use letters, digits, '-' and '_', starting with a letter or digit." : "Give it a name." }];
+    return f.rerender(el("div", { class: "banner err", role: "alert" }, "Fix the highlighted fields, then save again."));
+  }
+  try {
+    let res;
+    if (f.kind === "settings") res = await api("PUT", wsUrl("/config/settings"), body);
+    else if (f.isNew) res = await api("POST", wsUrl(`/config/${KIND[f.kind].api}`), body);
+    else res = await api("PUT", wsUrl(`/config/${KIND[f.kind].api}/${encodeURIComponent(f.id)}`), body);
+    f.dirty = false;
+    S.flash = { type: "ok", text: res.changed.length ? (f.isNew ? "Created as a draft. Publish to send it to agents." : "Saved as a draft. Publish to send it to agents.") : "Nothing changed." };
+    await loadAll();
+    if (f.kind === "settings") go("settings"); else go(KIND[f.kind].route, res.item.id);
+  } catch (e) {
+    const issues = (e.data && e.data.issues) || [];
+    f.errors = issues.filter((i) => (i.kind === f.kind && (f.kind === "settings" || i.id === id)) || (!i.kind && i.field === "id"));
+    const others = issues.filter((i) => !f.errors.includes(i));
+    f.rerender(others.length || !issues.length
+      ? errorBanner(others.length ? { data: { issues: others } } : e, f.errors.length ? "Fix the highlighted fields. This change also causes problems elsewhere:" : "This change can't be saved, because:")
+      : el("div", { class: "banner err", role: "alert" }, "Fix the highlighted fields, then save again."));
+    const first = document.querySelector(".field.bad, .row.bad, .ferr");
+    if (first) first.scrollIntoView({ block: "center" });
+  }
+}
+async function deleteItem(f) {
+  try {
+    const a = author();
+    await api("DELETE", wsUrl(`/config/${KIND[f.kind].api}/${encodeURIComponent(f.id)}${a ? `?author=${encodeURIComponent(a)}` : ""}`));
+    f.dirty = false;
+    S.flash = { type: "ok", text: `Deleted ${itemName(f.kind, f.id)} in the draft, and removed it from everything that named it. Publish to make it final.` };
+    await loadAll();
+    go(KIND[f.kind].route);
+  } catch (e) { f.rerender(errorBanner(e, "It can't be deleted yet:")); }
+}
+
+function header(kind, id, title, tab) {
+  const c = changeOf(kind, id);
+  const tabs = kind === "agent" ? [["", "Setup"], ["prompt", "Prompt"], ["history", "History"]] : [["", "Setup"], ["history", "History"]];
+  const base = itemHref(kind, id);
+  return [
+    kind === "settings" ? "" : el("div", { class: "crumb" }, el("a", { href: `#/${KIND[kind].route}` }, KIND[kind].many)),
+    el("div", { class: "title-row" }, el("h1", {}, title), c ? el("span", { class: "tag " + c.change }, `${c.change}, not published`) : ""),
+    el("nav", { class: "tabs" }, tabs.map(([t, label]) => el("a", { href: t ? `${base}/${t}` : base, class: tab === t ? "on" : "", "aria-current": tab === t ? "page" : null }, label))),
+  ];
+}
+function newHeader(kind) {
+  return [el("div", { class: "crumb" }, el("a", { href: `#/${KIND[kind].route}` }, KIND[kind].many)), el("h1", { style: "margin-bottom:20px" }, `New ${KIND[kind].one.toLowerCase()}`)];
+}
+// Which agents a shared instruction or procedure reaches, from the draft build.
+function reach(kind, id) {
+  const ck = kind === "base" ? "base" : "sop";
+  return (S.draft.agents || []).filter((a) => a.prompt !== null && a.components.some((c) => c.kind === ck && c.id === id)).map((a) => a.agent);
+}
+function reachNote(kind, id) {
+  const r = reach(kind, id);
+  return el("p", { class: "sub", style: "margin-top:-8px" }, r.length ? `In the draft, ${plural(r.length, "agent gets", "agents get")} it: ${r.join(", ")}.` : "In the draft, no agent gets it.");
+}
+function missing(kind, id) {
+  page(false, el("div", { class: "banner err" }, `There's no ${KIND[kind].one.toLowerCase()} called ${id}.`), el("a", { href: `#/${KIND[kind].route}` }, `All ${KIND[kind].many.toLowerCase()}`));
+}
+
+// ---------------------------------------------------------------------------------
+// pages
+function homePage() {
+  if (!S.ws) return page(false, el("div", { class: "empty-state" }, el("h1", {}, "Create a workspace"),
+    el("p", {}, "A workspace holds your agents with their shared instructions and procedures. Use New workspace at the top to start one.")));
+  if (!S.cfg.agents.length && !S.cfg.bases.length && !S.cfg.procedures.length) return page(false, el("div", { class: "empty-state" }, el("h1", {}, `${S.ws} has no agents yet`),
+    el("p", {}, "Start with an agent: one per location or phone line. Then put text several agents share into shared instructions, and write down each procedure they follow."),
+    el("button", { class: "btn primary", onclick: () => go("agents", "new") }, "New agent")));
+  go(S.draft.items.length ? "changes" : "agents");
+}
+
+function listPage(kind) {
+  const items = [...S.cfg[KIND[kind].list]].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
+  const intro = {
+    agent: "One per voice agent. Each agent's prompt is put together from its shared instructions, its own instructions and the procedures that apply to it.",
+    base: "Text several agents get, such as identity, voice and policies. Edit it once and every agent that uses it changes.",
+    procedure: "Step-by-step procedures the agents follow, with things they must never do and signs that a call needs a person.",
+  }[kind];
+  const cols = {
+    agent: [["Agent", (a) => el("b", {}, a.id)], ["Platform", (a) => `${platformName(a.platform)}: ${a.platform_id}`], ["Shared instructions", (a) => a.inherits.join(", ") || "None"]],
+    base: [["Name", (b) => el("b", {}, b.id)], ["Applies to", (b) => b.agents === "*" ? "All agents" : b.agents.length ? b.agents.join(", ") : "Agents that include it"], ["Agents", (b) => reach("base", b.id).length]],
+    procedure: [["Name", (p) => el("b", {}, p.name)], ["Applies to", (p) => p.agents === "*" ? "All agents" : p.agents.join(", ") || "No agents"], ["Steps", (p) => p.steps.length]],
+  }[kind];
+  page(false, flash(),
+    el("div", { class: "title-row" }, el("h1", {}, KIND[kind].many), el("span", { class: "spacer" }), el("button", { class: "btn primary", onclick: () => go(KIND[kind].route, "new") }, `New ${KIND[kind].one.toLowerCase()}`)),
+    el("p", { class: "sub" }, intro),
+    items.length ? el("table", { class: "list" }, el("tr", {}, cols.map(([h]) => el("th", {}, h)), el("th", {})),
+      items.map((it) => { const c = changeOf(kind, it.id); return el("tr", { class: "click", onclick: () => go(KIND[kind].route, it.id) }, cols.map(([, fn]) => el("td", {}, fn(it))), el("td", {}, c ? el("span", { class: "tag " + c.change }, c.change) : "")); }))
+      : el("p", { class: "note" }, `No ${KIND[kind].many.toLowerCase()} yet.`));
+}
+
+// --- agents
+function agentPage(id, tab) {
+  const isNew = id === "new";
+  const item = isNew ? null : S.cfg.agents.find((a) => a.id === id);
+  if (!isNew && !item) return missing("agent", id);
+  if (tab === "prompt") return promptPage(id);
+  if (tab === "history") return historyPage("agent", id, item);
+  const f = makeForm("agent", id, clone(item || { id: "", platform: "livekit", platform_id: "", inherits: [], variables: {}, instructions: "", exclude: [] }), isNew);
+  const draw = (top) => {
+    const m = f.model;
+    const autoBases = S.cfg.bases.filter((b) => (b.agents === "*" || b.agents.includes(m.id)) && !b.exclude.includes(m.id));
+    const autoProcs = S.cfg.procedures.filter((p) => (p.agents === "*" || p.agents.includes(m.id)) && !p.exclude.includes(m.id));
+    const skippable = [
+      ...autoBases.map((b) => ({ value: b.id, label: b.id, hint: b.locked ? "locked" : "shared instruction", disabled: b.locked })),
+      ...autoProcs.map((p) => ({ value: p.id, label: p.name, hint: p.locked ? "locked" : "procedure", disabled: p.locked })),
+    ];
+    for (const x of m.exclude) if (!skippable.some((o) => o.value === x)) skippable.push({ value: x, label: itemName(S.cfg.procedures.some((p) => p.id === x) ? "procedure" : "base", x), hint: "doesn't apply to this agent" });
+    const plat = PLATFORMS.find((p) => p[0] === m.platform) || PLATFORMS[0];
+    const defaults = Object.entries(S.cfg.settings.variables);
+    page(false, flash(), ...(isNew ? newHeader("agent") : header("agent", id, id, "")), top || "",
+      el("div", { class: "form" },
+        field(f, "id", "Name", isNew ? "A short id, for example the location: downtown. Letters, digits and dashes. It can't be changed later." : null,
+          input(f, "id", { readOnly: !isNew, placeholder: "downtown" })),
+        el("div", { class: "pair" },
+          field(f, "platform", "Platform", null, choose(f, "platform", PLATFORMS.map(([v, l]) => [v, l]), () => draw())),
+          field(f, "platform_id", `${plat[1]} ${plat[2].toLowerCase()}`, null, input(f, "platform_id", { placeholder: plat[2] }))),
+        field(f, "inherits", "Shared instructions", "Put at the top of the prompt, in this order. Each brings along the shared instructions it includes.",
+          picker(f, "inherits", S.cfg.bases.map((b) => ({ value: b.id, label: b.id, hint: b.position === "bottom" ? "end of prompt" : null })), { ordered: true, empty: "None yet." })),
+        autoBases.length ? el("p", { class: "note", style: "margin-top:-14px" }, `Also given to this agent automatically: ${autoBases.map((b) => b.id).join(", ")}.`) : "",
+        field(f, "variables", "Variables", `Values for placeholders such as {{restaurant_name}} in shared text.${defaults.length ? ` Defaults from Settings: ${defaults.map(([k, v]) => `${k} = ${v}`).join("; ")}.` : ""}`,
+          varRows(f, "variables", "value")),
+        field(f, "instructions", "Instructions only this agent gets", "Facts about this location: hours, address, what it doesn't offer.", area(f, "instructions", { class: "tall" })),
+        field(f, "exclude", "Skip", "Shared instructions or procedures this agent gets automatically but shouldn't follow. Locked ones can't be skipped.",
+          picker(f, "exclude", skippable, { empty: "Nothing skipped." })),
+      ),
+      actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id }, note), onDelete: isNew ? null : () => deleteItem(f) }));
+  };
+  f.rerender = draw;
+  draw();
+}
+
+// --- shared instructions
+function basePage(id, tab) {
+  const isNew = id === "new";
+  const item = isNew ? null : S.cfg.bases.find((b) => b.id === id);
+  if (!isNew && !item) return missing("base", id);
+  if (tab === "history") return historyPage("base", id, item);
+  const f = makeForm("base", id, clone(item || { id: "", text: "", agents: [], exclude: [], inherits: [], position: "top", locked: false }), isNew);
+  const draw = (top) => {
+    const m = f.model;
+    page(false, flash(), ...(isNew ? newHeader("base") : [...header("base", id, id, ""), reachNote("base", id)]), top || "",
+      el("div", { class: "form" },
+        field(f, "id", "Name", isNew ? "A short id, for example brand-voice. Letters, digits and dashes. It can't be changed later." : null, input(f, "id", { readOnly: !isNew, placeholder: "brand-voice" })),
+        field(f, "text", "Text", "What the agents are told. Write {{name}} for a value that differs per agent, and set it in each agent's variables.", area(f, "text", { class: "tall" })),
+        field(f, "agents", "Applies to", null, audience(f, { base: true })),
+        field(f, "inherits", "Includes", "Other shared instructions put before this one wherever it's used.",
+          picker(f, "inherits", S.cfg.bases.filter((b) => b.id !== m.id).map((b) => ({ value: b.id, label: b.id })), { ordered: true, empty: "None." })),
+        field(f, "position", "Position in the prompt", null, choose(f, "position", [["top", "Top, before the agent's own instructions"], ["bottom", "Bottom, after the procedures (for example, how to end a call)"]])),
+        field(f, "locked", "Locked", null, toggle(f, "locked", "Agents can't skip it. Use this for rules every agent it applies to must follow.")),
+      ),
+      actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id }, note), onDelete: isNew ? null : () => deleteItem(f) }));
+  };
+  f.rerender = draw;
+  draw();
+}
+
+// --- procedures
+const cleanStep = (s) => ({ text: s.text, tool: s.tool && s.tool.trim() ? s.tool.trim() : null, required: !!s.required });
+function procedurePage(id, tab) {
+  const isNew = id === "new";
+  const item = isNew ? null : S.cfg.procedures.find((p) => p.id === id);
+  if (!isNew && !item) return missing("procedure", id);
+  if (tab === "history") return historyPage("procedure", id, item);
+  const blank = { id: "", name: "", goal: "", when: "", guidance: "", steps: [{ text: "", tool: null, required: false }], never: [], warning_signs: [], agents: "*", exclude: [], delivery: "prompt", locked: false };
+  const f = makeForm("procedure", id, clone(item || blank), isNew);
+  let idEdited = !isNew;
+  const draw = (top) => {
+    const m = f.model;
+    const d = DELIVERY.find((x) => x[0] === m.delivery) || DELIVERY[0];
+    page(false, flash(), ...(isNew ? newHeader("procedure") : [...header("procedure", id, item.name, ""), reachNote("procedure", id)]), top || "",
+      el("div", { class: "form" },
+        field(f, "name", "Name", "The heading agents see, for example Large orders.", input(f, "name", { oninput: (e) => {
+          m.name = e.target.value; touch(f);
+          if (isNew && !idEdited) { m.id = slug(m.name); $("f-id").value = m.id; }
+        } })),
+        isNew ? field(f, "id", "ID", "Made from the name. Tools use it to fetch the procedure, so it can't be changed later.", input(f, "id", { oninput: (e) => { m.id = e.target.value; idEdited = true; touch(f); } })) : "",
+        field(f, "goal", "Goal", "The outcome that means it worked. Reviewers judge calls against it.", input(f, "goal", { placeholder: "The order is placed with a pickup time the kitchen can meet." })),
+        field(f, "when", "When it applies", null, input(f, "when", { placeholder: "Any order with more than 10 items." })),
+        field(f, "guidance", "Guidance", "Anything else the agent should know that isn't a step.", area(f, "guidance")),
+        field(f, "steps", "Steps", "In order. Name a tool to have the agent use it, and mark it required if the call must happen.", stepRows(f, "steps", { steps: true, placeholder: "What the agent does", noun: "Step" })),
+        field(f, "never", "Never", "Things the agent must never do.", stepRows(f, "never", { placeholder: "Never …", noun: "Rule" })),
+        field(f, "warning_signs", "Warning signs", "Situations that need special handling, usually a transfer to a person.", stepRows(f, "warning_signs", { placeholder: "Caller mentions …; transfer to …", noun: "Warning sign" })),
+        field(f, "agents", "Applies to", null, audience(f, { base: false })),
+        field(f, "delivery", "Delivery", d[2], choose(f, "delivery", DELIVERY.map(([v, l]) => [v, l]), () => draw())),
+        field(f, "locked", "Locked", null, toggle(f, "locked", "Agents can't skip it.")),
+      ),
+      actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id, steps: m.steps.map(cleanStep), never: m.never.map(cleanStep), warning_signs: m.warning_signs.map(cleanStep) }, note), onDelete: isNew ? null : () => deleteItem(f) }));
+  };
+  f.rerender = draw;
+  draw();
+}
+
+// --- settings
+function settingsPage(tab) {
+  if (tab === "history") return historyPage("settings", "settings", S.cfg.settings);
+  const f = makeForm("settings", "settings", clone(S.cfg.settings), false);
+  const draw = (top) => {
+    page(false, flash(), ...header("settings", "settings", "Settings", ""), top || "",
+      el("div", { class: "form" },
+        field(f, "variables", "Default variables", "Values for placeholders every agent gets unless the agent sets its own.", varRows(f, "variables", "default value")),
+        field(f, "procedures_heading", "Procedures heading", "The heading above the procedures in every prompt.", input(f, "procedures_heading")),
+        field(f, "procedure_order", "Procedures first", "These procedures come first in every prompt, in this order. The rest follow alphabetically.",
+          picker(f, "procedure_order", S.cfg.procedures.map((p) => ({ value: p.id, label: p.name })), { ordered: true, empty: "None. Procedures are in alphabetical order." })),
+      ),
+      actionBar(f, { onSave: (note) => saveItem(f, f.model, note) }));
+  };
+  f.rerender = draw;
+  draw();
+}
+
+// --- prompt preview
+async function promptPage(id) {
+  const head = header("agent", id, id, "prompt");
+  page(true, ...head, el("p", { class: "muted" }, "Loading…"));
+  const draft = S.draft.agents.find((a) => a.agent === id);
+  let live = null;
+  try { const rel = await liveRelease(); live = rel && rel.agents[id] ? { ...rel.agents[id], release: rel.number } : null; } catch (e) { return page(true, ...head, errorBanner(e)); }
+  const parts = (components) => el("div", { class: "parts", "aria-label": "Built from" }, components.map((c) => {
+    const kind = kindOfComponent(c.kind);
+    return el("a", { href: itemHref(kind, c.id), class: "tag", title: `${KIND[kind].one}, version ${c.version ?? "?"}` }, `${c.kind === "agent" ? "Agent setup" : itemName(kind, c.id)} v${c.version ?? "?"}`);
+  }));
+  const status = draft ? draft.status : "unchanged";
+  const sub = !S.draft.valid ? "The draft has errors, so it can't be built. See Unpublished changes."
+    : status === "unchanged" ? "The draft gives this agent the same prompt as the live release."
+    : status === "added" ? "This agent isn't live yet. It gets this prompt once you publish."
+    : "The draft changes this agent's prompt. The agent gets it once you publish.";
+  page(true, ...head, el("p", { class: "sub" }, sub),
+    el("div", { class: "compare" },
+      el("section", { class: "prompt" }, el("header", {}, el("b", {}, "Draft"), status !== "unchanged" ? el("span", { class: "tag " + status }, status) : "", draft && draft.hash ? el("span", { class: "note" }, `hash ${draft.hash.slice(0, 10)}`) : ""),
+        draft && draft.prompt !== null ? [parts(draft.components), el("pre", {}, draft.prompt)] : el("pre", { class: "muted" }, "Not in the draft.")),
+      el("section", { class: "prompt" }, el("header", {}, el("b", {}, live ? `Live (release #${live.release})` : "Live"), live ? el("span", { class: "note" }, `hash ${live.hash.slice(0, 10)}`) : ""),
+        live ? [parts(live.components), el("pre", {}, live.prompt)] : el("pre", { class: "muted" }, "Not live yet."))));
+}
+
+// --- history
+function readable(kind, it) {
+  if (!it || it.deleted) return ["(deleted)"];
+  const list = (title, items, numbered) => items.length ? [title, ...items.map((s, i) => `  ${numbered ? `${i + 1}.` : "-"} ${s.text}${s.tool ? `  [tool: ${s.tool}${s.required ? ", required" : ""}]` : ""}`)] : [];
+  const to = (a, ex) => (a === "*" ? "all agents" : a.length ? a.join(", ") : kind === "base" ? "agents that include it" : "no agents") + (ex.length ? `, except ${ex.join(", ")}` : "");
+  const vars = (title, v) => Object.keys(v).length ? [title, ...Object.entries(v).map(([k, x]) => `  ${k} = ${x}`)] : [`${title} none`];
+  const block = (title, t) => t ? [title, ...t.replace(/\n+$/, "").split("\n").map((l) => "  " + l)] : [`${title} (empty)`];
+  if (kind === "agent") return [`Platform: ${platformName(it.platform)}, ${it.platform_id}`, `Shared instructions: ${it.inherits.join(", ") || "none"}`, ...vars("Variables:", it.variables), ...block("Instructions:", it.instructions), `Skips: ${it.exclude.map((x) => itemName(S.cfg.procedures.some((p) => p.id === x) ? "procedure" : "base", x)).join(", ") || "nothing"}`];
+  if (kind === "base") return [...block("Text:", it.text), `Applies to: ${to(it.agents, it.exclude)}`, `Includes: ${it.inherits.join(", ") || "nothing"}`, `Position: ${it.position}`, `Locked: ${it.locked ? "yes" : "no"}`];
+  if (kind === "procedure") return [`Name: ${it.name}`, `Goal: ${it.goal}`, `When: ${it.when}`, ...block("Guidance:", it.guidance), ...list("Steps:", it.steps, true), ...list("Never:", it.never), ...list("Warning signs:", it.warning_signs), `Applies to: ${to(it.agents, it.exclude)}`, `Delivery: ${(DELIVERY.find((d) => d[0] === it.delivery) || [0, it.delivery])[1]}`, `Locked: ${it.locked ? "yes" : "no"}`];
+  return [...vars("Default variables:", it.variables), `Procedures heading: ${it.procedures_heading}`, `Procedures first: ${it.procedure_order.map((p) => itemName("procedure", p)).join(", ") || "none"}`];
+}
+function lineDiff(a, b) {
+  const n = a.length, m = b.length, L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = []; let i = 0, j = 0;
+  while (i < n && j < m) { if (a[i] === b[j]) { out.push([" ", a[i]]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) out.push(["-", a[i++]]); else out.push(["+", b[j++]]); }
+  while (i < n) out.push(["-", a[i++]]);
+  while (j < m) out.push(["+", b[j++]]);
+  return out;
+}
+async function historyPage(kind, id, item, chosenIndex) {
+  const title = kind === "settings" ? "Settings" : itemName(kind, id);
+  const head = header(kind, id, title, "history");
+  const base = kind === "settings" ? wsUrl("/config/settings") : wsUrl(`/config/${KIND[kind].api}/${encodeURIComponent(id)}`);
+  let hist;
+  try { hist = await api("GET", `${base}/history`); } catch (e) {
+    return page(false, ...head, e.status === 404 ? el("p", { class: "note" }, "Nothing saved yet.") : errorBanner(e));
+  }
+  const pick = chosenIndex ?? Math.min(1, hist.length - 1);
+  const chosen = hist[pick];
+  let old;
+  try { old = await api("GET", `${base}/versions/${chosen.version}?file=${encodeURIComponent(chosen.file)}`); } catch (e) { return page(false, ...head, errorBanner(e)); }
+  const live = (S.releases.find((r) => r.current) || {}).files || {};
+  const current = pick === 0;
+  const lines = current ? readable(kind, item).map((l) => [" ", l]) : lineDiff(readable(kind, old), readable(kind, item));
+  page(false, flash(), ...head,
+    el("div", { class: "history" },
+      el("table", { class: "list", "aria-label": "Versions" }, hist.map((h, i) => el("tr", { class: "click" + (i === pick ? " on" : ""), onclick: () => historyPage(kind, id, item, i) },
+        el("td", {}, el("div", {}, el("b", {}, `Version ${hist.length - i}`), " ",
+          i === 0 ? el("span", { class: "tag" }, "draft") : "", " ", live[h.file] === h.version ? el("span", { class: "tag live" }, "live") : "", " ", h.deleted ? el("span", { class: "tag deleted" }, "deleted") : ""),
+          el("div", { class: "note" }, when(h.created_at), h.author ? `, ${h.author}` : ""), h.note ? el("div", { class: "note" }, h.note) : "")))),
+      el("div", {},
+        el("p", { class: "sub", style: "margin-top:0" }, current ? "This is the current draft." : `What changed from version ${hist.length - pick} to the current draft: struck-through lines were removed, highlighted lines were added.`),
+        el("div", { class: "diff", role: "region", "aria-label": "Differences" }, lines.map(([op, line]) => el("div", { class: op === "+" ? "plus" : op === "-" ? "minus" : "" }, line || " "))),
+        !current && !old.deleted && item ? el("div", { class: "actions" }, el("button", { class: "btn", onclick: () => restore(kind, id, old, hist.length - pick) }, `Restore version ${hist.length - pick}`),
+          el("span", { class: "note" }, "Opens it in the form. Nothing changes until you save.")) : "")));
+}
+function restore(kind, id, old, label) {
+  history.pushState(null, "", itemHref(kind, id));
+  S.flash = { type: "warn", text: `Showing version ${label}. Save draft to keep it, or leave without saving.` };
+  render();
+  if (!S.form) return;
+  const skip = ["id", "file", "version", "updated_at", "updated_by", "format", "deleted"];
+  for (const [k, v] of Object.entries(old)) if (!skip.includes(k)) S.form.model[k] = clone(v);
+  S.form.dirty = true;
+  S.flash = { type: "warn", text: `Showing version ${label}. Save draft to keep it, or leave without saving.` };
+  S.form.rerender();
+}
+
+// --- unpublished changes
+function changesPage() {
+  const d = S.draft;
+  const changed = d.agents.filter((a) => a.status !== "unchanged");
+  const errors = d.issues.filter((i) => i.severity === "error");
+  const warnings = d.issues.filter((i) => i.severity === "warning");
+  const note = el("input", { placeholder: "What changed? For example: holiday hours", "aria-label": "Release note", style: "max-width:420px" });
+  const pub = el("button", { class: "btn primary", disabled: !d.items.length || errors.length > 0 }, "Publish");
+  const msg = el("div");
+  pub.addEventListener("click", async () => {
+    pub.disabled = true;
+    try {
+      const r = await api("POST", wsUrl("/releases"), { author: author(), note: note.value.trim() || null });
+      S.flash = { type: "ok", text: r.created ? `Published release #${r.release.number}. Agents get it on their next call.` : "Nothing new to publish." };
+      await loadAll(); go("releases", r.release.number);
+    } catch (e) { msg.replaceChildren(errorBanner(e, "It can't be published yet:")); pub.disabled = false; }
+  });
+  const label = { added: "New", edited: "Edited", deleted: "Deleted" };
+  const versions = (i) => i.change === "edited" ? `version ${i.released_version} is live, version ${i.version} is the draft` : "";
+  page(false, flash(), el("h1", {}, "Unpublished changes"),
+    el("p", { class: "sub" }, d.release ? `Agents are on release #${d.release}. Saved edits wait here until you publish them.` : "Nothing is live yet. Publishing sends the first release to your agents."),
+    errors.length ? el("div", { class: "banner err" }, "Fix these before publishing:", issueList(errors)) : "",
+    el("div", { class: "panel" }, el("h2", {}, d.items.length ? plural(d.items.length, "change", "changes") : "No changes"),
+      d.items.length ? el("table", { class: "list" }, d.items.map((i) => {
+        const href = i.change === "deleted" ? null : itemHref(i.kind, i.id);
+        return el("tr", { class: href ? "click" : "", onclick: href ? () => { location.hash = href; } : null },
+          el("td", {}, el("b", {}, i.name)), el("td", { class: "muted" }, KIND[i.kind].one), el("td", {}, el("span", { class: "tag " + i.change }, label[i.change])), el("td", { class: "note" }, versions(i)));
+      })) : el("p", { class: "note" }, "Edits you save show up here.")),
+    el("div", { class: "panel" }, el("h2", {}, changed.length ? `${plural(changed.length, "agent gets", "agents get")} a new prompt` : "No agent's prompt changes"),
+      changed.length ? el("table", { class: "list" }, changed.map((a) => el("tr", { class: a.status === "removed" ? "" : "click", onclick: a.status === "removed" ? null : () => go("agents", a.agent, "prompt") },
+        el("td", {}, el("b", {}, a.agent)), el("td", { class: "muted" }, a.platform_ref),
+        el("td", {}, el("span", { class: "tag " + a.status }, { added: "New agent", changed: "Prompt changes", removed: "Removed" }[a.status])),
+        el("td", { class: "note" }, a.status === "removed" ? "" : "Compare prompts")))) : d.items.length ? el("p", { class: "note" }, "The saved edits don't change what any agent is told.") : ""),
+    warnings.length ? el("div", { class: "banner warn" }, "Worth a look (these don't block publishing):", issueList(warnings)) : "",
+    el("div", { class: "actions" }, pub, note), msg);
+}
+
+// --- releases
+function releasesPage() {
+  page(false, flash(), el("h1", {}, "Releases"), el("p", { class: "sub" }, "Each publish makes a release. Agents get the live release when a call starts. Open an older one to make it live again."),
+    S.releases.length ? el("table", { class: "list" }, el("tr", {}, el("th", {}, "Release"), el("th", {}, "Note"), el("th", {}, "Published"), el("th", {})),
+      S.releases.map((r) => el("tr", { class: "click", onclick: () => go("releases", r.number) }, el("td", {}, el("b", {}, `#${r.number}`)), el("td", {}, r.note || el("span", { class: "muted" }, "No note")),
+        el("td", { class: "note" }, when(r.created_at), r.author ? `, ${r.author}` : ""), el("td", {}, r.current ? el("span", { class: "tag live" }, "live") : ""))))
+      : el("p", { class: "note" }, "Nothing published yet. Saved edits wait under Unpublished changes."));
+}
+function itemOfPath(path) {
+  if (path === "sopc.yaml") return ["settings", "settings"];
+  const [dir, name] = path.split("/");
+  return [{ agents: "agent", bases: "base", procedures: "procedure" }[dir], (name || "").replace(/\.(md|yaml)$/, "")];
+}
+async function releasePage(n) {
+  let r;
+  try { r = await api("GET", wsUrl(`/releases/${n}`)); } catch (e) { return page(false, errorBanner(e)); }
+  const items = Object.entries(r.files).map(([path, v]) => { const [kind, id] = itemOfPath(path); return { kind, id, v }; }).filter((x) => x.kind);
+  const msg = el("div");
+  const activate = r.current ? "" : el("button", { class: "btn primary" }, "Make this release live");
+  if (activate) armed(activate, `Click again: agents get #${n} on their next call`, async () => {
+    try {
+      await api("POST", wsUrl(`/releases/${n}/activate`));
+      S.flash = { type: "ok", text: `Release #${n} is live. Agents get it on their next call.` };
+      await loadAll(); renderTop(); renderRail(); releasePage(n);
+    } catch (e) { msg.replaceChildren(errorBanner(e)); }
+  });
+  const group = (kind) => items.filter((i) => i.kind === kind).map((i) => `${itemName(kind, i.id)} v${i.v}`).join(", ") || "None";
+  page(false, flash(), el("div", { class: "crumb" }, el("a", { href: "#/releases" }, "Releases")),
+    el("div", { class: "title-row" }, el("h1", {}, `Release #${r.number}`), r.current ? el("span", { class: "tag live" }, "live") : ""),
+    el("p", { class: "sub" }, `${r.note || "No note"}. Published ${when(r.created_at)}${r.author ? ` by ${r.author}` : ""}.`),
+    msg, activate ? el("div", { style: "margin-bottom:18px" }, activate) : "",
+    el("div", { class: "panel" }, el("h2", {}, "Agents"), el("table", { class: "list" }, Object.entries(r.agents).map(([id, a]) =>
+      el("tr", {}, el("td", {}, el("b", {}, id)), el("td", { class: "muted" }, a.platform_ref), el("td", { class: "note" }, `hash ${a.hash.slice(0, 10)}`))))),
+    el("div", { class: "panel" }, el("h2", {}, "Built from"), el("table", { class: "list" },
+      [["Agents", "agent"], ["Shared instructions", "base"], ["Procedures", "procedure"], ["Settings", "settings"]].map(([label, kind]) =>
+        el("tr", {}, el("td", { class: "muted", style: "width:180px" }, label), el("td", {}, group(kind)))))));
+}
+
+// ---------------------------------------------------------------------------------
+// workspaces and the top bar
+async function openWorkspace(name) {
+  S.ws = name; S.releaseCache = {}; local.set("sopserve.ws", name);
+  try { await loadAll(); } catch (e) { S.cfg = null; renderTop(); page(false, errorBanner(e)); return; }
+  render();
+}
+async function init() {
+  const theme = local.get("sopserve.theme"); if (theme) document.documentElement.dataset.theme = theme;
+  $("author").value = local.get("sopserve.author") || "";
+  try { S.workspaces = await api("GET", "/v1/workspaces"); } catch (e) { page(false, errorBanner(e)); return; }
+  if (!S.workspaces.some((w) => w.workspace === S.ws)) S.ws = S.workspaces.length ? S.workspaces[0].workspace : "";
+  renderTop();
+  if (S.ws) await openWorkspace(S.ws); else page(false, el("div", { class: "empty-state" }, el("h1", {}, "Create a workspace"),
+    el("p", {}, "A workspace holds your agents with their shared instructions and procedures. Use New workspace at the top to start one.")));
+}
+$("author").addEventListener("change", () => local.set("sopserve.author", $("author").value.trim()));
+$("ws").addEventListener("change", async (e) => { if (S.form) S.form.dirty = false; history.replaceState(null, "", "#/"); await openWorkspace(e.target.value); });
+$("changes-btn").addEventListener("click", () => go("changes"));
+$("theme").addEventListener("click", () => {
+  const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  document.documentElement.dataset.theme = cur === "dark" ? "light" : "dark";
+  local.set("sopserve.theme", document.documentElement.dataset.theme);
+});
+const wsBox = (open) => { $("new-ws-box").classList.toggle("hidden", !open); $("new-ws-btn").classList.toggle("hidden", open); if (open) $("new-ws").focus(); };
+$("new-ws-btn").addEventListener("click", () => wsBox(true));
+$("new-ws-cancel").addEventListener("click", () => wsBox(false));
+async function createWorkspace() {
+  const name = $("new-ws").value.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) { $("new-ws").setCustomValidity("Use letters, digits, '.', '_' and '-'."); $("new-ws").reportValidity(); return; }
+  $("new-ws").setCustomValidity(""); $("new-ws").value = ""; wsBox(false);
+  if (!S.workspaces.some((w) => w.workspace === name)) S.workspaces.push({ workspace: name, current_release: null });
+  history.replaceState(null, "", "#/");
+  await openWorkspace(name);
+}
+$("new-ws-ok").addEventListener("click", createWorkspace);
+$("new-ws").addEventListener("keydown", (e) => { if (e.key === "Enter") createWorkspace(); if (e.key === "Escape") wsBox(false); });
+init();
 </script>
 </body>
 </html>

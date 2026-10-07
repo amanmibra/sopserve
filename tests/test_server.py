@@ -1,45 +1,8 @@
 import json
-import os
-import shutil
-from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
-from sopserve import Sopc, Store, create_app
-from sopserve.store import engine_from_url, metadata
-
-FIXTURE = Path(__file__).parent / "fixtures" / "restaurants"
-SOPC_BIN = os.environ.get("SOPC_BIN") or str(Path.home() / "Desktop/repos/sopc/target/release/sopc")
-if not Path(SOPC_BIN).exists():
-    SOPC_BIN = shutil.which("sopc")
-
-pytestmark = pytest.mark.skipif(not SOPC_BIN, reason="needs a sopc binary with `validate --json` (set SOPC_BIN)")
-
-WS = "/v1/workspaces/demo"
-
-
-def read_files(root: Path) -> dict[str, str]:
-    return {p.relative_to(root).as_posix(): p.read_text() for p in sorted(root.rglob("*")) if p.is_file()}
-
-
-def expected(name: str) -> str:
-    return (FIXTURE / "expected" / name).read_text()
-
-
-@pytest.fixture
-def files():
-    return read_files(FIXTURE / "sops")
-
-
-@pytest.fixture
-def client(tmp_path):
-    """SQLite by default; set SOPSERVE_TEST_DATABASE_URL to run against Postgres (its tables are dropped first)."""
-    url = os.environ.get("SOPSERVE_TEST_DATABASE_URL")
-    if url:
-        metadata.drop_all(engine_from_url(url))
-    store = Store(url or f"sqlite:///{tmp_path / 'test.db'}", Sopc(SOPC_BIN))
-    return TestClient(create_app(store, token="secret"), headers={"Authorization": "Bearer secret"})
+from conftest import WS, expected
 
 
 def edit(client, changes, **kw):
@@ -49,12 +12,9 @@ def edit(client, changes, **kw):
 # --- stateless ------------------------------------------------------------------
 
 
-def test_requires_token(tmp_path):
-    client = TestClient(create_app(Store(f"sqlite:///{tmp_path / 'a.db'}", Sopc(SOPC_BIN)), token="secret"))
-    assert client.post("/v1/validate", json={"files": {}}).status_code == 401
-    assert client.get("/v1/workspaces").status_code == 401
-    assert client.get("/v1/workspaces", headers={"Authorization": "Bearer wrong"}).status_code == 401
-    assert client.get("/").status_code == 200  # the UI shell has no data in it
+def test_no_auth_yet(client):
+    assert client.get("/v1/workspaces").status_code == 200
+    assert client.get("/").status_code == 200
 
 
 def test_validate_render_lint(client, files):

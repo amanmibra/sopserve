@@ -1,23 +1,23 @@
 """sopserve: versioned sopc workspaces over HTTP, and the prompt each agent gets at call start.
 
-Its OpenAPI spec (/openapi.json) is what SDKs are generated from. Set SOPSERVE_TOKEN to require
-`Authorization: Bearer <token>`, DATABASE_URL for the database (default sqlite:///sopserve.db),
-and SOPC_BIN for the sopc binary (default: `sopc` on PATH).
+Its OpenAPI spec (/openapi.json) is what SDKs are generated from. Set DATABASE_URL for the database
+(default sqlite:///sopserve.db) and SOPC_BIN for the sopc binary (default: `sopc` on PATH).
+There is no authentication yet: run it on a private network.
 """
 
 from __future__ import annotations
 
 import os
-import secrets
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response
+from fastapi import FastAPI, Query, Response
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, create_model
 
 from . import __version__
+from . import forms
 from .sopc import Invalid, Sopc, SopcUnavailable, without_build
 from .store import Conflict, NotFound, Store
 
@@ -34,9 +34,14 @@ class FilesRequest(BaseModel):
 
 class IssueOut(BaseModel):
     code: str
-    message: str
+    message: str = Field(description="sopc's message.")
     path: str = Field(description="Relative to the sopc folder; empty for folder-wide issues.")
     severity: Literal["error", "warning"]
+    kind: Literal["agent", "base", "procedure", "settings"] | None = Field(None, description="The item the issue is about, if known.")
+    id: str | None = None
+    field: str | None = Field(None, description="The item's field, as the /config endpoints name it (e.g. `steps`, `inherits`).")
+    index: int | None = Field(None, description="For list fields (steps, never, warning_signs): which entry.")
+    text: str | None = Field(None, description="The issue in plain words, for showing next to the field.")
 
 
 class ValidateResponse(BaseModel):
@@ -146,6 +151,7 @@ class DraftResponse(BaseModel):
     valid: bool
     issues: list[IssueOut]
     files: list[FileChange] = Field(description="Files changed since the current release.")
+    items: list[DraftItem] = Field(description="The same changes as agents, shared instructions, procedures and settings.")
     agents: list[DraftAgent]
 
 
@@ -220,10 +226,142 @@ class FetchOut(BaseModel):
     at: datetime
 
 
+# --- items (the /config endpoints) ----------------------------------------------------
+
+Targets = Literal["*"] | list[str]
+
+
+class Step(BaseModel):
+    text: str
+    tool: str | None = Field(None, description="Exact name of a tool the agent has.")
+    required: bool = Field(False, description="Steps only: the tool call must happen.")
+
+
+class Saved(BaseModel):
+    author: str | None = Field(None, description="Recorded with the new version.")
+    note: str | None = None
+
+
+class ItemMeta(BaseModel):
+    version: int | None = Field(None, description="Version of the item's file at head.")
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+    file: str = Field(description="Where it lives in the sopc folder (for git export).")
+
+
+class AgentFields(BaseModel):
+    platform: Literal["livekit", "vapi", "elevenlabs", "retell"]
+    platform_id: str = Field(description="The agent's id on its platform, e.g. LiveKit agent_name.")
+    inherits: list[str] = Field([], description="Shared instructions (base ids) it uses, in order.")
+    variables: dict[str, str] = Field({}, description="Values for {{placeholders}}; override the defaults in settings.")
+    instructions: str = Field("", description="Text only this agent gets.")
+    exclude: list[str] = Field([], description="Shared instructions or procedures that target it but shouldn't apply.")
+
+
+class BaseFields(BaseModel):
+    text: str
+    agents: Targets = Field([], description='"*" for every agent, or agent ids. [] means only agents that list it in inherits.')
+    exclude: list[str] = Field([], description="Agents left out even if `agents` matches them.")
+    inherits: list[str] = Field([], description="Shared instructions placed before this one wherever it's used.")
+    position: Literal["top", "bottom"] = "top"
+    locked: bool = Field(False, description="No agent can skip it.")
+
+
+class ProcedureFields(BaseModel):
+    name: str
+    goal: str = ""
+    when: str = ""
+    guidance: str = ""
+    steps: list[Step] = Field(description="In order; at least one.")
+    never: list[Step] = []
+    warning_signs: list[Step] = []
+    agents: Targets = Field([], description='"*" for every agent, or agent ids.')
+    exclude: list[str] = []
+    delivery: Literal["prompt", "auto", "tool"] = "prompt"
+    locked: bool = False
+
+
+class SettingsFields(BaseModel):
+    variables: dict[str, str] = Field({}, description="Default values for {{placeholders}}, for every agent.")
+    procedures_heading: str = Field(forms.DEFAULT_HEADING, description="Heading above the procedures in each prompt.")
+    procedure_order: list[str] = Field([], description="Procedures placed first; the rest follow alphabetically.")
+
+
+class AgentIn(AgentFields, Saved):
+    pass
+
+
+class BaseIn(BaseFields, Saved):
+    pass
+
+
+class ProcedureIn(ProcedureFields, Saved):
+    pass
+
+
+class SettingsIn(SettingsFields, Saved):
+    pass
+
+
+class NewAgent(AgentIn):
+    id: str
+
+
+class NewBase(BaseIn):
+    id: str
+
+
+class NewProcedure(ProcedureIn):
+    id: str
+
+
+class AgentConfig(AgentFields, ItemMeta):
+    id: str
+
+
+class BaseConfig(BaseFields, ItemMeta):
+    id: str
+
+
+class ProcedureConfig(ProcedureFields, ItemMeta):
+    id: str
+    format: Literal["markdown", "yaml"] = Field(description="How the file is written. New procedures are Markdown.")
+
+
+class SettingsConfig(SettingsFields, ItemMeta):
+    pass
+
+
+class ConfigResponse(BaseModel):
+    workspace: str
+    settings: SettingsConfig
+    agents: list[AgentConfig]
+    bases: list[BaseConfig]
+    procedures: list[ProcedureConfig]
+
+
+class ItemVersion(BaseModel):
+    version: int
+    deleted: bool
+    created_at: datetime
+    author: str | None
+    note: str | None
+    file: str
+
+
+class DraftItem(BaseModel):
+    kind: Literal["agent", "base", "procedure", "settings"]
+    id: str
+    name: str
+    change: Literal["added", "edited", "deleted"]
+    version: int | None
+    released_version: int | None
+
+
 # --- app ----------------------------------------------------------------------
 
 
-def create_app(store: Store, token: str | None = None) -> FastAPI:
+def create_app(store: Store) -> FastAPI:
     app = FastAPI(
         title="sopserve",
         version=__version__,
@@ -231,13 +369,9 @@ def create_app(store: Store, token: str | None = None) -> FastAPI:
     )
     invalid = {422: {"model": ValidateResponse, "description": "The files don't compile; sopc's issues."}}
 
-    def auth(authorization: str | None = Header(None)) -> None:
-        if token and not (authorization and secrets.compare_digest(authorization, f"Bearer {token}")):
-            raise HTTPException(401, "missing or invalid bearer token")
-
     @app.exception_handler(Invalid)
     def _invalid(_, exc: Invalid) -> JSONResponse:
-        return JSONResponse(status_code=422, content={"valid": False, "issues": [i.to_dict() for i in exc.issues]})
+        return JSONResponse(status_code=422, content={"valid": False, "issues": [forms.locate(i).to_dict() for i in exc.issues]})
 
     @app.exception_handler(NotFound)
     def _not_found(_, exc: NotFound) -> JSONResponse:
@@ -253,20 +387,20 @@ def create_app(store: Store, token: str | None = None) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def ui() -> FileResponse:
-        return FileResponse(STATIC / "index.html")
+        return FileResponse(STATIC / "index.html", headers={"Cache-Control": "no-cache"})
 
     @app.get("/healthz", include_in_schema=False)
     def healthz() -> dict:
         return {"ok": True}
 
-    v1 = [Depends(auth)]
+    v1: list = []  # no authentication yet (v0); keep sopserve on a private network
 
     # stateless
 
     @app.post("/v1/validate", response_model=ValidateResponse, dependencies=v1, tags=["stateless"])
     def validate(req: FilesRequest) -> dict:
         issues = store.sopc.validate(without_build(req.files))
-        return {"valid": not any(i.severity == "error" for i in issues), "issues": [i.to_dict() for i in issues]}
+        return {"valid": not any(i.severity == "error" for i in issues), "issues": [forms.locate(i).to_dict() for i in issues]}
 
     @app.post("/v1/render", response_model=RenderResponse, responses=invalid, dependencies=v1, tags=["stateless"])
     def render(req: FilesRequest) -> dict:
@@ -276,7 +410,7 @@ def create_app(store: Store, token: str | None = None) -> FastAPI:
         return {
             "agents": {a: {k: v for k, v in b.items() if k != "blocks"} for a, b in compiled.agents.items()},
             "lock": compiled.lock,
-            "warnings": [i.to_dict() for i in compiled.issues],
+            "warnings": [forms.locate(i).to_dict() for i in compiled.issues],
         }
 
     @app.post("/v1/lint", response_model=LintResponse, responses=invalid, dependencies=v1, tags=["stateless"])
@@ -314,6 +448,83 @@ def create_app(store: Store, token: str | None = None) -> FastAPI:
     def file_history(workspace: str, path: str) -> list[dict]:
         """Every version of a file, newest first, without content."""
         return store.history(workspace, path)
+
+    # items: the structured view the UI's forms edit
+
+    @app.get("/v1/workspaces/{workspace}/config", response_model=ConfigResponse, dependencies=v1, tags=["config"])
+    def get_config(workspace: str) -> dict:
+        """Head as structured items: settings, agents, shared instructions (bases) and procedures (SOPs)."""
+        return {"workspace": workspace, **store.items(workspace)}
+
+    def item_routes(kind: str, plural: str, In: type[BaseModel], New: type[BaseModel], Out: type[BaseModel]) -> None:
+        """GET/POST {plural}, GET/PUT/DELETE {plural}/{id}, and its history and old versions."""
+        path = f"/v1/workspaces/{{workspace}}/config/{plural}"
+        what = {"agent": "agent", "base": "shared instruction (sopc base)", "procedure": "procedure (SOP)"}[kind]
+        Result = create_model(f"{Out.__name__}Saved", item=(Out, ...), changed=(list[WrittenFile], ...))
+
+        def save(workspace: str, id: str, req: BaseModel, create: bool) -> dict:
+            data = req.model_dump(exclude={"author", "note", "id"})
+            item, changed = store.put_item(workspace, kind, id, data, req.author, req.note, create=create)
+            return {"item": item, "changed": changed}
+
+        def list_items(workspace: str) -> list[dict]:
+            return store.items(workspace)[plural]
+
+        def create(workspace: str, req) -> dict:
+            return save(workspace, req.id, req, create=True)
+
+        def get(workspace: str, id: str) -> dict:
+            return store.item(workspace, kind, id)
+
+        def put(workspace: str, id: str, req) -> dict:
+            return save(workspace, id, req, create=False)
+
+        def delete(workspace: str, id: str, author: str | None = None, note: str | None = None) -> dict:
+            return {"workspace": workspace, "changed": store.delete_item(workspace, kind, id, author, note)}
+
+        def history(workspace: str, id: str) -> list[dict]:
+            return store.item_history(workspace, kind, id)
+
+        def version(workspace: str, id: str, version: int, file: str | None = Query(None, description="From history; for a procedure that changed format.")) -> dict:
+            return store.item_version(workspace, kind, id, version, file)
+
+        create.__annotations__ = {"workspace": str, "req": New, "return": dict}
+        put.__annotations__ = {"workspace": str, "id": str, "req": In, "return": dict}
+        routes = [
+            ("GET", "", list_items, list[Out], f"Every {what} at head.", {}),
+            ("POST", "", create, Result, f"Create a {what}. Rejected if the result doesn't compile; 409 if it exists.", {**invalid, 409: {"description": "Already exists."}}),
+            ("GET", "/{id}", get, Out, f"One {what} at head.", {}),
+            ("PUT", "/{id}", put, Result, f"Create or replace a {what}. Rejected if the result doesn't compile. Nothing goes live until a release.", invalid),
+            ("DELETE", "/{id}", delete, WriteResponse, f"Delete a {what}, and remove it from every list that names it.", invalid),
+            ("GET", "/{id}/history", history, list[ItemVersion], f"Every version of a {what}, newest first.", {}),
+            ("GET", "/{id}/versions/{version}", version, dict[str, Any], f"An older version of a {what}, as fields.", {}),
+        ]
+        for method, suffix, fn, model, doc, responses in routes:
+            app.add_api_route(
+                path + suffix, fn, methods=[method], response_model=model, description=doc, responses=responses,
+                dependencies=v1, tags=["config"], name=f"{fn.__name__}_{kind}", status_code=201 if method == "POST" else 200,
+            )
+
+    item_routes("agent", "agents", AgentIn, NewAgent, AgentConfig)
+    item_routes("base", "bases", BaseIn, NewBase, BaseConfig)
+    item_routes("procedure", "procedures", ProcedureIn, NewProcedure, ProcedureConfig)
+
+    @app.get("/v1/workspaces/{workspace}/config/settings", response_model=SettingsConfig, dependencies=v1, tags=["config"])
+    def get_settings(workspace: str) -> dict:
+        return store.items(workspace)["settings"]
+
+    @app.put("/v1/workspaces/{workspace}/config/settings", response_model=dict[str, Any], responses=invalid, dependencies=v1, tags=["config"])
+    def put_settings(workspace: str, req: SettingsIn) -> dict:
+        item, changed = store.put_item(workspace, "settings", "settings", req.model_dump(exclude={"author", "note"}), req.author, req.note)
+        return {"item": item, "changed": changed}
+
+    @app.get("/v1/workspaces/{workspace}/config/settings/history", response_model=list[ItemVersion], dependencies=v1, tags=["config"])
+    def settings_history(workspace: str) -> list[dict]:
+        return store.item_history(workspace, "settings", "settings")
+
+    @app.get("/v1/workspaces/{workspace}/config/settings/versions/{version}", response_model=dict[str, Any], dependencies=v1, tags=["config"])
+    def settings_version(workspace: str, version: int) -> dict:
+        return store.item_version(workspace, "settings", "settings", version)
 
     # releases
 
@@ -408,5 +619,5 @@ def _released(b: dict) -> dict:
 
 
 def app_from_env() -> FastAPI:
-    return create_app(Store(os.environ.get("DATABASE_URL", "sqlite:///sopserve.db"), Sopc()), os.environ.get("SOPSERVE_TOKEN"))
+    return create_app(Store(os.environ.get("DATABASE_URL", "sqlite:///sopserve.db"), Sopc()))
 

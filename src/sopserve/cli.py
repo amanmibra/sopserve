@@ -1,7 +1,7 @@
 """sopserve [--host H] [--port P] [--database-url URL]
 
-Env: DATABASE_URL (default sqlite:///sopserve.db), SOPSERVE_TOKEN to require `Authorization: Bearer <token>`,
-SOPC_BIN for the sopc binary (default: `sopc` on PATH).
+Env: DATABASE_URL (default sqlite:///sopserve.db), SOPC_BIN for the sopc binary (default: `sopc` on PATH).
+There is no authentication yet: keep it on a private network.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ def main(argv: list[str] | None = None) -> None:
     sopc = Sopc()
     if not sopc.binary:
         parser.error("sopc not found; install it or set SOPC_BIN")
-    uvicorn.run(create_app(Store(args.database_url, sopc), os.environ.get("SOPSERVE_TOKEN")), host=args.host, port=args.port)
+    uvicorn.run(create_app(Store(args.database_url, sopc)), host=args.host, port=args.port)
 
 
 if __name__ == "__main__":

@@ -32,6 +32,7 @@ from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.engine import Connection, Engine
 from sqlalchemy.exc import IntegrityError
 
+from . import forms
 from .sopc import Files, Invalid, Issue, Sopc, path_issues
 
 _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
@@ -151,6 +152,139 @@ class Store:
         with self._locked(workspace) as conn:
             return self._write(conn, workspace, files, author, note, replace=True)
 
+    # --- items: agents, bases, procedures and settings as structured data ------------
+
+    def items(self, workspace: str) -> dict:
+        """Head as {settings, agents, bases, procedures}, each with its version."""
+        ws = _ws(workspace)
+        with self.engine.connect() as conn:
+            head = self._head_rows(conn, ws)
+        return self._items(head)
+
+    def _items(self, head: list[dict]) -> dict:
+        files = {r["path"]: r["content"] for r in head}
+        if forms.CONFIG in files:
+            items = forms.from_export(self.sopc.export(files))
+        else:  # a new workspace: sopc.yaml is written with the first item
+            items = {"settings": {"variables": {}, "procedures_heading": forms.DEFAULT_HEADING, "procedure_order": []}, "agents": [], "bases": [], "procedures": []}
+        rows = {r["path"]: r for r in head}
+        for item in [items["settings"], *items["agents"], *items["bases"], *items["procedures"]]:
+            row = rows.get(item.get("file", forms.CONFIG))
+            item["version"] = row["version"] if row else None
+            item["updated_at"] = _utc(row["created_at"]) if row else None
+            item["updated_by"] = row["author"] if row else None
+        items["settings"]["file"] = forms.CONFIG
+        return items
+
+    def item(self, workspace: str, kind: str, id: str) -> dict:
+        found = forms.find(self.items(workspace), kind, id)
+        if found is None:
+            raise NotFound(f"{_KIND_NAMES[kind]} '{id}' not found")
+        return found
+
+    def put_item(self, workspace: str, kind: str, id: str, data: dict, author=None, note=None, create=False) -> tuple[dict, list[dict]]:
+        """Create or replace one item from its fields. Returns (the item as saved, files written)."""
+        ws = _ws(workspace)
+        issues = forms.check(kind, id, data)
+        if issues:
+            raise Invalid(issues)
+        with self._locked(ws) as conn:
+            head = self._head_rows(conn, ws)
+            items = self._items(head)
+            current = forms.find(items, kind, id)
+            if kind != "settings" and current is not None and create:
+                raise Conflict(f"{_KIND_NAMES[kind]} '{id}' already exists")
+            if kind == "procedure" and any(b["id"] == id for b in items["bases"]):
+                raise Invalid([_name_taken(kind, id, "a shared instruction")])
+            if kind == "base" and any(p["id"] == id for p in items["procedures"]):
+                raise Invalid([_name_taken(kind, id, "a procedure")])
+            current_path = current["file"] if current and current.get("version") else None
+            path, text, saved = forms.write(kind, id, data, current_path, self.sopc.export)
+            if current_path and forms.same(kind, current, saved):
+                return current, []
+            changes: dict[str, str | None] = {path: text}
+            if current_path and current_path != path:
+                changes[current_path] = None
+            if forms.CONFIG not in {r["path"] for r in head} and path != forms.CONFIG:
+                changes[forms.CONFIG] = "version: 1\n"
+            written = self._write(conn, ws, changes, author, note, replace=False)
+            return {**saved, "file": path}, written
+
+    def delete_item(self, workspace: str, kind: str, id: str, author=None, note=None) -> list[dict]:
+        """Delete an item, and remove it from every list that names it (inherits, applies to, skips, order)."""
+        ws = _ws(workspace)
+        if kind == "settings":
+            raise Conflict("settings can't be deleted")
+        with self._locked(ws) as conn:
+            head = self._head_rows(conn, ws)
+            items = self._items(head)
+            target = forms.find(items, kind, id)
+            if target is None:
+                raise NotFound(f"{_KIND_NAMES[kind]} '{id}' not found")
+            names = {id}
+            if kind == "agent":
+                names.add(f"{target['platform']}:{target['platform_id']}")
+            changes: dict[str, str | None] = {target["file"]: None}
+
+            def drop(values: list[str]) -> list[str]:
+                return [v for v in values if v not in names]
+
+            edits: list[tuple[str, dict]] = []
+            for other_kind, key in (("agent", "agents"), ("base", "bases"), ("procedure", "procedures")):
+                for other in items[key]:
+                    if other_kind == kind and other["id"] == id:
+                        continue
+                    new = dict(other)
+                    if kind == "agent" and other_kind in ("base", "procedure"):
+                        if new["agents"] != "*":
+                            new["agents"] = drop(new["agents"])
+                        new["exclude"] = drop(new["exclude"])
+                    if kind == "base" and other_kind in ("agent", "base"):
+                        new["inherits"] = drop(new["inherits"])
+                    if kind in ("base", "procedure") and other_kind == "agent":
+                        new["exclude"] = drop(new["exclude"])
+                    if not forms.same(other_kind, other, new):
+                        edits.append((other_kind, new))
+            if kind == "procedure" and id in items["settings"]["procedure_order"]:
+                edits.append(("settings", {**items["settings"], "procedure_order": drop(items["settings"]["procedure_order"])}))
+            for other_kind, new in edits:
+                path, text, _ = forms.write(other_kind, new.get("id", "settings"), new, new["file"], self.sopc.export)
+                changes[path] = text
+                if path != new["file"]:
+                    changes[new["file"]] = None
+            return self._write(conn, ws, changes, author, note, replace=False)
+
+    def item_history(self, workspace: str, kind: str, id: str) -> list[dict]:
+        """Every version of an item, newest first. A procedure moved from Markdown to YAML keeps both histories."""
+        ws = _ws(workspace)
+        q = (
+            select(file_versions)
+            .where(file_versions.c.workspace == ws, file_versions.c.path.in_(forms.paths_of(kind, id)))
+            .order_by(file_versions.c.created_at.desc(), file_versions.c.version.desc())
+        )
+        with self.engine.connect() as conn:
+            rows = [_file_out(r) for r in conn.execute(q).mappings()]
+        if not rows:
+            raise NotFound(f"{_KIND_NAMES[kind]} '{id}' not found")
+        return [{**{k: v for k, v in r.items() if k != "path"}, "file": r["path"]} for r in rows]
+
+    def item_version(self, workspace: str, kind: str, id: str, version: int, file: str | None = None) -> dict:
+        """An older version of an item, as fields."""
+        paths = forms.paths_of(kind, id)
+        if file is not None and file not in paths:
+            raise NotFound(f"'{file}' is not a file of {_KIND_NAMES[kind]} '{id}'")
+        for path in [file] if file else paths:
+            try:
+                row = self.file(workspace, path, version)
+            except NotFound:
+                continue
+            if row["deleted"]:
+                return {"id": id, "version": version, "deleted": True, "file": path, "updated_at": row["created_at"], "updated_by": row["author"]}
+            files = {path: row["content"]} if kind == "settings" else {forms.CONFIG: "", path: row["content"]}
+            found = forms.find(forms.from_export(self.sopc.export(files)), kind, id)
+            return {**found, "file": path, "version": version, "deleted": False, "updated_at": row["created_at"], "updated_by": row["author"]}
+        raise NotFound(f"{_KIND_NAMES[kind]} '{id}' has no version {version}")
+
     # --- releases --------------------------------------------------------------
 
     def draft(self, workspace: str) -> dict:
@@ -171,6 +305,29 @@ class Store:
                 files.append({"path": path, "change": change, "version": new, "released_version": old})
 
         compiled = self.sopc.compile({r["path"]: r["content"] for r in head}) if head else None
+        names = {}
+        if compiled and compiled.valid:
+            head_items = self._items(head)
+            for key, kind in (("agents", "agent"), ("bases", "base"), ("procedures", "procedure")):
+                for it in head_items[key]:
+                    names[(kind, it["id"])] = it.get("name") or it["id"]
+        items: dict[tuple[str, str], dict] = {}
+        for f in files:
+            where = forms.item_of_path(f["path"])
+            if not where:
+                continue
+            prev = items.get(where)
+            change = f["change"]
+            if prev:  # a procedure moved between Markdown and YAML: one edit
+                change = "edited" if {prev["change"], change} == {"added", "deleted"} else prev["change"]
+            items[where] = {
+                "kind": where[0],
+                "id": where[1],
+                "name": "Settings" if where[0] == "settings" else names.get(where, where[1]),
+                "change": change,
+                "version": f["version"] if f["version"] is not None else (prev or {}).get("version"),
+                "released_version": f["released_version"] if f["released_version"] is not None else (prev or {}).get("released_version"),
+            }
         draft_agents = compiled.agents if compiled and compiled.valid else {}
         agents = []
         for agent_id in sorted(set(draft_agents) | set(live_agents)):
@@ -191,8 +348,9 @@ class Store:
             "workspace": ws,
             "release": current["number"] if current else None,
             "valid": compiled.valid if compiled else False,
-            "issues": [i.to_dict() for i in compiled.issues] if compiled else [],
+            "issues": [forms.locate(i).to_dict() for i in compiled.issues] if compiled else [],
             "files": files,
+            "items": list(items.values()),
             "agents": agents,
         }
 
@@ -368,6 +526,14 @@ def _components(blocks: list[dict], versions: dict[str, int]) -> list[dict]:
     if CONFIG in versions:
         out.append({"kind": "config", "id": "sopc", "path": CONFIG, "version": versions[CONFIG]})
     return out
+
+
+_KIND_NAMES = {"agent": "agent", "base": "shared instruction", "procedure": "procedure", "settings": "settings"}
+
+
+def _name_taken(kind: str, id: str, other: str) -> Issue:
+    text = f"'{id}' is already the name of {other}; pick another name."
+    return Issue("duplicate_id", text, "", "error", kind=kind, id=id, field="id", text=text)
 
 
 def _check_paths(files: dict) -> None:

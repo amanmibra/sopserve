@@ -1,7 +1,8 @@
 """Compiling with the sopc binary, so served prompts match the CLI byte for byte.
 
-Each call writes the files to a temp folder and runs `sopc validate --json`, then `sopc -o` or `sopc lint --json`.
-The binary is `SOPC_BIN`, else `sopc` on PATH. It needs `validate --json` (sopc after v0.0.7).
+Each call writes the files to a temp folder and runs `sopc validate --json`, then `sopc -o` or `sopc lint --json`;
+`sopc export` reads files into the structured items the forms edit. The binary is `SOPC_BIN`, else `sopc` on PATH.
+It needs `validate --json` and `export` (sopc after v0.0.7).
 """
 
 from __future__ import annotations
@@ -35,9 +36,18 @@ class Issue:
     message: str
     path: str
     severity: str
+    # Filled in by forms.locate: the item and field the issue is about, and a plain-language message.
+    kind: str | None = None
+    id: str | None = None
+    field: str | None = None
+    index: int | None = None
+    text: str | None = None
 
     def to_dict(self) -> dict:
-        return {"code": self.code, "message": self.message, "path": self.path, "severity": self.severity}
+        out = {"code": self.code, "message": self.message, "path": self.path, "severity": self.severity}
+        if self.text is not None:
+            out.update(kind=self.kind, id=self.id, field=self.field, index=self.index, text=self.text)
+        return out
 
 
 @dataclass
@@ -86,6 +96,7 @@ class Sopc:
         self.binary = binary or os.environ.get("SOPC_BIN") or shutil.which("sopc")
         self._cache: OrderedDict[str, Compiled] = OrderedDict()
         self._cache_size = cache_size
+        self._exports: OrderedDict[str, dict] = OrderedDict()
         self._lock = threading.Lock()
 
     def validate(self, files: Files) -> list[Issue]:
@@ -104,6 +115,33 @@ class Sopc:
             while len(self._cache) > self._cache_size:
                 self._cache.popitem(last=False)
         return result
+
+    def export(self, files: Files) -> dict:
+        """Every block's parsed fields (`sopc export`). Raises Invalid if a file can't be read.
+        Only parsing is checked; references between files are validate's business."""
+        key = "export:" + _digest(files)
+        with self._lock:
+            if key in self._exports:
+                self._exports.move_to_end(key)
+                return self._exports[key]
+        with self._written(files) as (root, bad):
+            if bad:
+                raise Invalid(bad)
+            proc = self._run(root, "export", check=False)
+        try:
+            body = json.loads(proc.stdout)
+        except ValueError:
+            raise SopcUnavailable(
+                f"`{self.binary} export` failed (exit {proc.returncode}): {proc.stderr.strip()[:500]}. "
+                "sopserve needs a sopc with `export` (after v0.0.7); set SOPC_BIN to it."
+            ) from None
+        if proc.returncode != 0:
+            raise Invalid([Issue(i["code"], i["message"], i["path"], i["severity"]) for i in body.get("issues", [])])
+        with self._lock:
+            self._exports[key] = body
+            while len(self._exports) > self._cache_size * 4:
+                self._exports.popitem(last=False)
+        return body
 
     def lint(self, files: Files) -> list[dict]:
         with self._prepared(files) as (root, issues):
@@ -132,19 +170,23 @@ class Sopc:
             return Compiled(issues, lock, agents)
 
     @contextmanager
-    def _prepared(self, files: Files) -> Iterator[tuple[Path, list[Issue]]]:
-        """Write the files to a temp folder and validate them there."""
+    def _written(self, files: Files) -> Iterator[tuple[Path, list[Issue]]]:
+        """The files in a temp folder, or the path problems that kept them from being written."""
         with tempfile.TemporaryDirectory(prefix="sopserve-") as tmp:
             root = Path(tmp)
             bad = path_issues(files)
-            if bad:
-                yield root, bad
-                return
-            for path, content in files.items():
-                dest = root / PurePosixPath(path)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(content.encode())
-            yield root, self._validate_dir(root)
+            if not bad:
+                for path, content in files.items():
+                    dest = root / PurePosixPath(path)
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    dest.write_bytes(content.encode())
+            yield root, bad
+
+    @contextmanager
+    def _prepared(self, files: Files) -> Iterator[tuple[Path, list[Issue]]]:
+        """Write the files to a temp folder and validate them there."""
+        with self._written(files) as (root, bad):
+            yield root, bad or self._validate_dir(root)
 
     def _validate_dir(self, root: Path) -> list[Issue]:
         proc = self._run(root, "validate", "--json", check=False)
