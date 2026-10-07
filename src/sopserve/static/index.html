@@ -155,10 +155,53 @@
   .parts { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--sunk); }
   .parts .tag { background: var(--panel); color: var(--ink); }
   .history { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 20px; align-items: start; }
-  .diff { font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 0; white-space: pre-wrap; word-break: break-word; }
-  .diff div { padding: 0 14px; }
-  .diff .plus { background: color-mix(in srgb, var(--ok) 16%, transparent); }
-  .diff .minus { background: color-mix(in srgb, var(--err) 13%, transparent); color: var(--muted); text-decoration: line-through; }
+  /* diffs */
+  .dv-wrap { margin: 8px 0; }
+  .dv-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .seg.small button { padding: 3px 10px; font-size: 13px; }
+  .counts { font: 600 13px/1 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+  .c-add { color: var(--ok); } .c-del { color: var(--err); } .c-mod { color: var(--warn); }
+  .dv { font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: auto; max-height: 75vh; }
+  .dl { display: grid; grid-template-columns: 42px 42px 18px minmax(0, 1fr); }
+  .dl.split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .dh { display: grid; grid-template-columns: 42px 18px minmax(0, 1fr); min-width: 0; }
+  .dh + .dh { border-left: 1px solid var(--line); }
+  .ln { color: var(--muted); opacity: .7; text-align: right; padding-right: 8px; user-select: none; font-size: 11.5px; }
+  .sg { user-select: none; text-align: center; color: var(--muted); }
+  .tx { white-space: pre-wrap; word-break: break-word; padding-right: 12px; }
+  .dl.add, .dh.add { background: color-mix(in srgb, var(--ok) 13%, transparent); }
+  .dl.del, .dh.del { background: color-mix(in srgb, var(--err) 11%, transparent); }
+  .dl.add .sg, .dh.add .sg { color: var(--ok); } .dl.del .sg, .dh.del .sg { color: var(--err); }
+  .dh.pad { background: var(--sunk); }
+  mark.wadd { background: color-mix(in srgb, var(--ok) 38%, transparent); color: inherit; border-radius: 2px; }
+  mark.wdel { background: color-mix(in srgb, var(--err) 34%, transparent); color: inherit; border-radius: 2px; text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--err) 60%, transparent); }
+  .dv-fold { display: block; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--sunk); color: var(--accent); padding: 3px 12px 3px 102px; cursor: pointer; font: 12.5px/1.6 system-ui, sans-serif; }
+  .dv.split .dv-fold { padding-left: 60px; }
+  .dv-fold:hover { text-decoration: underline; }
+  details.change { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
+  details.change > summary { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; list-style: none; flex-wrap: wrap; }
+  details.change > summary::-webkit-details-marker { display: none; }
+  details.change > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; }
+  details.change[open] > summary::before { transform: rotate(90deg); }
+  .change-body { padding: 0 14px 14px; }
+  .section-title { font-size: 16px; margin: 26px 0 10px; }
+  .tag.big { font-size: 13px; padding: 2px 10px; font-weight: 600; }
+  .top-actions { position: static; border-top: 0; padding: 0 0 6px; margin: 0; background: none; backdrop-filter: none; }
+  ul.fchanges { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .fc-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .chg { font-size: 13px; padding: 0 6px; border-radius: 6px; background: var(--sunk); }
+  .beforeafter { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-top: 4px; }
+  .was { background: color-mix(in srgb, var(--err) 11%, transparent); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--err) 55%, transparent); padding: 0 5px; border-radius: 4px; white-space: pre-wrap; }
+  .now { background: color-mix(in srgb, var(--ok) 13%, transparent); padding: 0 5px; border-radius: 4px; white-space: pre-wrap; }
+  .arrow { color: var(--muted); }
+  table.kv td { padding: 2px 8px 2px 0; vertical-align: top; }
+  pre.plain { margin: 6px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--sunk); white-space: pre-wrap; word-break: break-word; font: 12.5px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  pre.plain.add { background: color-mix(in srgb, var(--ok) 11%, transparent); }
+  pre.plain.del { background: color-mix(in srgb, var(--err) 9%, transparent); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--err) 45%, transparent); }
+  .built { display: grid; gap: 6px; margin-bottom: 8px; }
+  .built > div { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .built .parts { border: 0; padding: 0; background: none; }
+  h3.minor { font-size: 14px; margin: 20px 0 4px; }
   .empty-state { padding: 40px 0; max-width: 60ch; }
   .empty-state h1 { margin-bottom: 8px; }
   .hidden { display: none !important; }
@@ -172,6 +215,7 @@
     .row.items { grid-template-columns: 1fr auto; }
     .row.steps .tool, .row.items .tool { grid-column: 2 / 3; }
     .row.vars { grid-template-columns: 1fr auto; }
+    .dl { grid-template-columns: 34px 34px 16px minmax(0, 1fr); }
   }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
@@ -729,6 +773,209 @@ function settingsPage(tab) {
 }
 
 // --- prompt preview
+// --- diffs: one component for prompts, item history and field changes
+const splitLines = (t) => (t === null || t === undefined ? [] : Array.isArray(t) ? t : String(t).replace(/\n$/, "").split("\n"));
+
+// Line ops [{op: " " | "-" | "+", text}] by longest common subsequence, after trimming the common ends.
+function diffLines(a, b) {
+  let s = 0;
+  while (s < a.length && s < b.length && a[s] === b[s]) s++;
+  let ea = a.length, eb = b.length;
+  while (ea > s && eb > s && a[ea - 1] === b[eb - 1]) { ea--; eb--; }
+  const out = a.slice(0, s).map((text) => ({ op: " ", text }));
+  const A = a.slice(s, ea), B = b.slice(s, eb), n = A.length, m = B.length;
+  if (n * m > 4e6) { // too big to align: everything in the middle changed
+    A.forEach((text) => out.push({ op: "-", text })); B.forEach((text) => out.push({ op: "+", text }));
+  } else {
+    const L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+    for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    let i = 0, j = 0;
+    while (i < n && j < m) {
+      if (A[i] === B[j]) { out.push({ op: " ", text: A[i] }); i++; j++; }
+      else if (L[i + 1][j] >= L[i][j + 1]) out.push({ op: "-", text: A[i++] });
+      else out.push({ op: "+", text: B[j++] });
+    }
+    while (i < n) out.push({ op: "-", text: A[i++] });
+    while (j < m) out.push({ op: "+", text: B[j++] });
+  }
+  a.slice(ea).forEach((text) => out.push({ op: " ", text }));
+  return out;
+}
+const diffCount = (ops) => ({ add: ops.filter((o) => o.op === "+").length, del: ops.filter((o) => o.op === "-").length });
+
+// Words that differ between a removed line and the added line that replaced it.
+function wordMarks(a, b) {
+  const tok = (s) => s.match(/\s+|[\p{L}\p{N}_{}]+|[^\s\p{L}\p{N}_{}]/gu) || [];
+  const ta = tok(a), tb = tok(b);
+  if (ta.length * tb.length > 40000) return [[{ t: a, mark: true }], [{ t: b, mark: true }]];
+  const ops = diffLines(ta, tb);
+  const side = (keep) => {
+    const segs = [];
+    for (const o of ops) {
+      if (o.op !== " " && o.op !== keep) continue;
+      const mark = o.op !== " ";
+      const last = segs[segs.length - 1];
+      if (last && last.mark === mark) last.t += o.text; else segs.push({ t: o.text, mark });
+    }
+    return segs;
+  };
+  return [side("-"), side("+")];
+}
+const segNodes = (segs, cls) => segs.map((s) => (s.mark ? el("mark", { class: cls }, s.t) : s.t));
+
+// Rows with line numbers; runs of unchanged lines longer than 2*context fold behind a button.
+function diffRows(ops) {
+  const rows = [];
+  let o = 0, n = 0;
+  for (let i = 0; i < ops.length;) {
+    if (ops[i].op === " ") { rows.push({ op: " ", text: ops[i].text, o: ++o, n: ++n }); i++; continue; }
+    const del = [], add = [];
+    while (i < ops.length && ops[i].op === "-") del.push(ops[i++].text);
+    while (i < ops.length && ops[i].op === "+") add.push(ops[i++].text);
+    while (i < ops.length && ops[i].op === "-") del.push(ops[i++].text); // "+ then -" never happens, but be safe
+    const pairs = Math.min(del.length, add.length);
+    const marks = Array.from({ length: pairs }, (_, k) => wordMarks(del[k], add[k]));
+    rows.push({ block: true, del: del.map((t, k) => ({ text: t, o: ++o, segs: k < pairs ? marks[k][0] : null })), add: add.map((t, k) => ({ text: t, n: ++n, segs: k < pairs ? marks[k][1] : null })) });
+  }
+  return rows;
+}
+
+function diffView(before, after, { context = 3, mode, toggle = true, empty = "No differences." } = {}) {
+  const ops = diffLines(splitLines(before), splitLines(after));
+  const box = el("div", { class: "dv-wrap" });
+  if (!ops.some((x) => x.op !== " ")) { box.append(el("p", { class: "note" }, empty)); return box; }
+  let view = mode || (toggle ? local.get("sopserve.diffmode") : null) || "unified";
+  const rows = diffRows(ops);
+  const draw = () => {
+    const body = el("div", { class: "dv " + view, role: "table", "aria-label": "Differences" });
+    const line = (cls, o, n, sign, content) => el("div", { class: "dl " + cls, role: "row" },
+      el("span", { class: "ln" }, o ?? ""), el("span", { class: "ln" }, n ?? ""), el("span", { class: "sg", "aria-hidden": "true" }, sign), el("span", { class: "tx" }, content));
+    const half = (cls, num, sign, content) => el("div", { class: "dh " + cls },
+      el("span", { class: "ln" }, num ?? ""), el("span", { class: "sg", "aria-hidden": "true" }, sign), el("span", { class: "tx" }, content));
+    const same = (r) => view === "unified" ? line("eq", r.o, r.n, " ", r.text || " ") : el("div", { class: "dl split", role: "row" }, half("eq", r.o, " ", r.text || " "), half("eq", r.n, " ", r.text || " "));
+    const emit = (r) => {
+      if (!r.block) return [same(r)];
+      const out = [];
+      if (view === "unified") {
+        r.del.forEach((d) => out.push(line("del", d.o, null, "−", d.segs ? segNodes(d.segs, "wdel") : d.text || " ")));
+        r.add.forEach((a) => out.push(line("add", null, a.n, "+", a.segs ? segNodes(a.segs, "wadd") : a.text || " ")));
+      } else {
+        for (let k = 0; k < Math.max(r.del.length, r.add.length); k++) {
+          const d = r.del[k], a = r.add[k];
+          out.push(el("div", { class: "dl split", role: "row" },
+            d ? half("del", d.o, "−", d.segs ? segNodes(d.segs, "wdel") : d.text || " ") : half("pad", "", "", ""),
+            a ? half("add", a.n, "+", a.segs ? segNodes(a.segs, "wadd") : a.text || " ") : half("pad", "", "", "")));
+        }
+      }
+      return out;
+    };
+    // Fold long unchanged runs.
+    for (let i = 0; i < rows.length;) {
+      if (rows[i].block) { body.append(...emit(rows[i])); i++; continue; }
+      let j = i; while (j < rows.length && !rows[j].block) j++;
+      const run = rows.slice(i, j), head = i === 0 ? 0 : context, tail = j === rows.length ? 0 : context;
+      if (run.length > head + tail + 1) {
+        run.slice(0, head).forEach((r) => body.append(...emit(r)));
+        const hidden = run.slice(head, run.length - tail);
+        const btn = el("button", { class: "dv-fold", type: "button" }, `Show ${plural(hidden.length, "unchanged line", "unchanged lines")}`);
+        btn.addEventListener("click", () => btn.replaceWith(...hidden.flatMap(emit)));
+        body.append(btn);
+        run.slice(run.length - tail).forEach((r) => body.append(...emit(r)));
+      } else run.forEach((r) => body.append(...emit(r)));
+      i = j;
+    }
+    const c = diffCount(ops);
+    box.replaceChildren(
+      toggle ? el("div", { class: "dv-bar" }, counts(c),
+        el("span", { class: "spacer" }),
+        el("div", { class: "seg small", role: "group", "aria-label": "Diff layout" }, [["unified", "Unified"], ["split", "Side by side"]].map(([v, l]) =>
+          el("button", { type: "button", "aria-pressed": String(view === v), onclick: () => { view = v; local.set("sopserve.diffmode", v); draw(); } }, l)))) : "",
+      body);
+  };
+  draw();
+  return box;
+}
+const counts = (c) => el("span", { class: "counts", "aria-label": `${c.add} lines added, ${c.del} removed` }, el("span", { class: "c-add" }, `+${c.add}`), " ", el("span", { class: "c-del" }, `−${c.del}`));
+const promptCounts = (a) => diffCount(diffLines(splitLines(a.released_prompt), splitLines(a.prompt)));
+
+// --- what changed in an item, field by field, in plain words
+const FIELD_LABELS = {
+  agent: [["platform", "Platform"], ["platform_id", "Platform id"], ["inherits", "Shared instructions"], ["variables", "Variables"], ["instructions", "Instructions"], ["exclude", "Skips"]],
+  base: [["text", "Text"], ["agents", "Applies to"], ["exclude", "Except"], ["inherits", "Includes"], ["position", "Position"], ["locked", "Locked"]],
+  procedure: [["name", "Name"], ["goal", "Goal"], ["when", "When it applies"], ["guidance", "Guidance"], ["steps", "Steps"], ["never", "Never"], ["warning_signs", "Warning signs"], ["agents", "Applies to"], ["exclude", "Except"], ["delivery", "Delivery"], ["locked", "Locked"]],
+  settings: [["variables", "Default variables"], ["procedures_heading", "Procedures heading"], ["procedure_order", "Procedures first"]],
+};
+const TEXT_FIELDS = ["instructions", "text", "guidance"];
+const STEP_FIELDS = ["steps", "never", "warning_signs"];
+const LIST_FIELDS = ["inherits", "exclude", "procedure_order", "agents"];
+function nameIn(field, v) {
+  if (field === "procedure_order" || field === "exclude") return S.cfg.procedures.some((p) => p.id === v) ? itemName("procedure", v) : v;
+  return v;
+}
+function scalarText(field, v) {
+  if (field === "platform") return platformName(v);
+  if (field === "delivery") return (DELIVERY.find((d) => d[0] === v) || [0, v])[1];
+  if (field === "position") return v === "bottom" ? "Bottom" : "Top";
+  if (field === "locked") return v ? "On" : "Off";
+  return v === "" ? "(empty)" : v;
+}
+const stepLine = (s) => `${s.text}${s.tool ? `  [tool: ${s.tool}${s.required ? ", required" : ""}]` : ""}`;
+
+// [{label, summary, detail}] for the fields that differ.
+function fieldChanges(kind, before, after) {
+  const out = [];
+  for (const [field, label] of FIELD_LABELS[kind]) {
+    const a = before[field], b = after[field];
+    if (JSON.stringify(a) === JSON.stringify(b)) continue;
+    if (TEXT_FIELDS.includes(field)) {
+      const c = diffCount(diffLines(splitLines(a), splitLines(b)));
+      out.push({ label, summary: !a ? "added" : !b ? "removed" : `edited, ${c.add} line${c.add === 1 ? "" : "s"} in, ${c.del} out`, detail: () => diffView(a, b, { toggle: false, context: 2 }) });
+    } else if (STEP_FIELDS.includes(field)) {
+      const ops = diffLines(a.map(stepLine), b.map(stepLine));
+      let added = 0, removed = 0, edited = 0;
+      for (const r of diffRows(ops)) if (r.block) { const p = Math.min(r.del.length, r.add.length); edited += p; added += r.add.length - p; removed += r.del.length - p; }
+      const moved = !added && !removed && !edited;
+      const parts = [added && `${added} added`, edited && `${edited} edited`, removed && `${removed} removed`].filter(Boolean);
+      out.push({ label, summary: moved ? "reordered" : parts.join(", "), detail: () => diffView(a.map(stepLine), b.map(stepLine), { toggle: false, context: 99 }) });
+    } else if (field === "agents" && (a === "*" || b === "*")) {
+      const show = (v) => v === "*" ? "All agents" : v.length ? v.join(", ") : kind === "base" ? "Agents that include it" : "No agents";
+      out.push({ label, summary: `${show(a)} → ${show(b)}`, values: [show(a), show(b)] });
+    } else if (LIST_FIELDS.includes(field)) {
+      const plus = b.filter((x) => !a.includes(x)), minus = a.filter((x) => !b.includes(x));
+      const bits = [...plus.map((x) => ({ t: `+ ${nameIn(field, x)}`, c: "c-add" })), ...minus.map((x) => ({ t: `− ${nameIn(field, x)}`, c: "c-del" }))];
+      if (!bits.length) bits.push({ t: "order changed", c: "" });
+      out.push({ label, summary: bits, values: [a.map((x) => nameIn(field, x)).join(", ") || "none", b.map((x) => nameIn(field, x)).join(", ") || "none"] });
+    } else if (field === "variables") {
+      const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
+      const bits = [];
+      for (const k of keys) {
+        if (!(k in a)) bits.push({ t: `+ ${k}`, c: "c-add" });
+        else if (!(k in b)) bits.push({ t: `− ${k}`, c: "c-del" });
+        else if (a[k] !== b[k]) bits.push({ t: `${k} changed`, c: "c-mod" });
+      }
+      if (!bits.length) bits.push({ t: "order changed", c: "" });
+      out.push({ label, summary: bits, detail: () => el("table", { class: "kv" }, keys.filter((k) => a[k] !== b[k]).map((k) => el("tr", {}, el("td", {}, k),
+        el("td", {}, k in a ? el("span", { class: "was" }, a[k]) : el("span", { class: "note" }, "not set")), el("td", { class: "arrow" }, "→"),
+        el("td", {}, k in b ? el("span", { class: "now" }, b[k]) : el("span", { class: "note" }, "removed"))))) });
+    } else {
+      out.push({ label, summary: "changed", values: [scalarText(field, a), scalarText(field, b)] });
+    }
+  }
+  return out;
+}
+function changeList(kind, before, after) {
+  const changes = fieldChanges(kind, before, after);
+  if (!changes.length) return el("p", { class: "note" }, "No field changed (the saved text was only reformatted).");
+  return el("ul", { class: "fchanges" }, changes.map((c) => {
+    const summary = Array.isArray(c.summary) ? c.summary.map((b) => el("span", { class: "chg " + b.c }, b.t)) : el("span", { class: "muted" }, c.summary);
+    const li = el("li", {}, el("div", { class: "fc-head" }, el("b", {}, c.label), summary));
+    if (c.values) li.append(el("div", { class: "beforeafter" }, el("span", { class: "was" }, c.values[0]), el("span", { class: "arrow", "aria-label": "becomes" }, "→"), el("span", { class: "now" }, c.values[1])));
+    if (c.detail) li.append(c.detail());
+    return li;
+  }));
+}
+
+// --- prompt preview
 async function promptPage(id) {
   const head = header("agent", id, id, "prompt");
   page(true, ...head, el("p", { class: "muted" }, "Loading…"));
@@ -744,12 +991,27 @@ async function promptPage(id) {
     : status === "unchanged" ? "The draft gives this agent the same prompt as the live release."
     : status === "added" ? "This agent isn't live yet. It gets this prompt once you publish."
     : "The draft changes this agent's prompt. The agent gets it once you publish.";
-  page(true, ...head, el("p", { class: "sub" }, sub),
-    el("div", { class: "compare" },
-      el("section", { class: "prompt" }, el("header", {}, el("b", {}, "Draft"), status !== "unchanged" ? el("span", { class: "tag " + status }, status) : "", draft && draft.hash ? el("span", { class: "note" }, `hash ${draft.hash.slice(0, 10)}`) : ""),
-        draft && draft.prompt !== null ? [parts(draft.components), el("pre", {}, draft.prompt)] : el("pre", { class: "muted" }, "Not in the draft.")),
-      el("section", { class: "prompt" }, el("header", {}, el("b", {}, live ? `Live (release #${live.release})` : "Live"), live ? el("span", { class: "note" }, `hash ${live.hash.slice(0, 10)}`) : ""),
-        live ? [parts(live.components), el("pre", {}, live.prompt)] : el("pre", { class: "muted" }, "Not live yet."))));
+  const draftPrompt = draft && draft.prompt !== null ? draft.prompt : null;
+  const livePrompt = live ? live.prompt : null;
+  let showing = "changes";
+  const area = el("div");
+  const full = () => el("div", { class: "compare" },
+    el("section", { class: "prompt" }, el("header", {}, el("b", {}, "Draft"), draft && draft.hash ? el("span", { class: "note" }, `hash ${draft.hash.slice(0, 10)}`) : ""),
+      draftPrompt !== null ? [parts(draft.components), el("pre", {}, draftPrompt)] : el("pre", { class: "muted" }, "Not in the draft.")),
+    el("section", { class: "prompt" }, el("header", {}, el("b", {}, live ? `Live (release #${live.release})` : "Live"), live ? el("span", { class: "note" }, `hash ${live.hash.slice(0, 10)}`) : ""),
+      live ? [parts(live.components), el("pre", {}, live.prompt)] : el("pre", { class: "muted" }, "Not live yet.")));
+  const changes = () => el("div", {},
+    el("div", { class: "built" }, live ? el("div", {}, el("span", { class: "note" }, `Live, release #${live.release}: `), parts(live.components)) : "",
+      draftPrompt !== null ? el("div", {}, el("span", { class: "note" }, "Draft: "), parts(draft.components)) : ""),
+    diffView(livePrompt, draftPrompt, { empty: "The draft prompt is the same as the live one." }));
+  const drawArea = () => area.replaceChildren(showing === "changes" ? changes() : full());
+  const c = diffCount(diffLines(splitLines(livePrompt), splitLines(draftPrompt)));
+  page(true, ...head,
+    el("div", { class: "title-row", style: "margin-bottom:14px" }, el("p", { class: "sub", style: "margin:0" }, sub), el("span", { class: "spacer" }), status !== "unchanged" ? counts(c) : "",
+      el("div", { class: "seg", role: "group", "aria-label": "Show" }, [["changes", "What changes"], ["full", "Full prompts"]].map(([v, l]) =>
+        el("button", { type: "button", "aria-pressed": String(showing === v), onclick: (e) => { showing = v; e.target.parentNode.querySelectorAll("button").forEach((b) => b.setAttribute("aria-pressed", String(b === e.target))); drawArea(); } }, l)))),
+    area);
+  drawArea();
 }
 
 // --- history
@@ -763,15 +1025,6 @@ function readable(kind, it) {
   if (kind === "base") return [...block("Text:", it.text), `Applies to: ${to(it.agents, it.exclude)}`, `Includes: ${it.inherits.join(", ") || "nothing"}`, `Position: ${it.position}`, `Locked: ${it.locked ? "yes" : "no"}`];
   if (kind === "procedure") return [`Name: ${it.name}`, `Goal: ${it.goal}`, `When: ${it.when}`, ...block("Guidance:", it.guidance), ...list("Steps:", it.steps, true), ...list("Never:", it.never), ...list("Warning signs:", it.warning_signs), `Applies to: ${to(it.agents, it.exclude)}`, `Delivery: ${(DELIVERY.find((d) => d[0] === it.delivery) || [0, it.delivery])[1]}`, `Locked: ${it.locked ? "yes" : "no"}`];
   return [...vars("Default variables:", it.variables), `Procedures heading: ${it.procedures_heading}`, `Procedures first: ${it.procedure_order.map((p) => itemName("procedure", p)).join(", ") || "none"}`];
-}
-function lineDiff(a, b) {
-  const n = a.length, m = b.length, L = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
-  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = a[i] === b[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
-  const out = []; let i = 0, j = 0;
-  while (i < n && j < m) { if (a[i] === b[j]) { out.push([" ", a[i]]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) out.push(["-", a[i++]]); else out.push(["+", b[j++]]); }
-  while (i < n) out.push(["-", a[i++]]);
-  while (j < m) out.push(["+", b[j++]]);
-  return out;
 }
 async function historyPage(kind, id, item, chosenIndex) {
   const title = kind === "settings" ? "Settings" : itemName(kind, id);
@@ -787,18 +1040,19 @@ async function historyPage(kind, id, item, chosenIndex) {
   try { old = await api("GET", `${base}/versions/${chosen.version}?file=${encodeURIComponent(chosen.file)}`); } catch (e) { return page(false, ...head, errorBanner(e)); }
   const live = (S.releases.find((r) => r.current) || {}).files || {};
   const current = pick === 0;
-  const lines = current ? readable(kind, item).map((l) => [" ", l]) : lineDiff(readable(kind, old), readable(kind, item));
+  const label = (i) => `Version ${hist.length - i}`;
   page(false, flash(), ...head,
     el("div", { class: "history" },
       el("table", { class: "list", "aria-label": "Versions" }, hist.map((h, i) => el("tr", { class: "click" + (i === pick ? " on" : ""), onclick: () => historyPage(kind, id, item, i) },
-        el("td", {}, el("div", {}, el("b", {}, `Version ${hist.length - i}`), " ",
+        el("td", {}, el("div", {}, el("b", {}, label(i)), " ",
           i === 0 ? el("span", { class: "tag" }, "draft") : "", " ", live[h.file] === h.version ? el("span", { class: "tag live" }, "live") : "", " ", h.deleted ? el("span", { class: "tag deleted" }, "deleted") : ""),
           el("div", { class: "note" }, when(h.created_at), h.author ? `, ${h.author}` : ""), h.note ? el("div", { class: "note" }, h.note) : "")))),
       el("div", {},
-        el("p", { class: "sub", style: "margin-top:0" }, current ? "This is the current draft." : `What changed from version ${hist.length - pick} to the current draft: struck-through lines were removed, highlighted lines were added.`),
-        el("div", { class: "diff", role: "region", "aria-label": "Differences" }, lines.map(([op, line]) => el("div", { class: op === "+" ? "plus" : op === "-" ? "minus" : "" }, line || " "))),
-        !current && !old.deleted && item ? el("div", { class: "actions" }, el("button", { class: "btn", onclick: () => restore(kind, id, old, hist.length - pick) }, `Restore version ${hist.length - pick}`),
-          el("span", { class: "note" }, "Opens it in the form. Nothing changes until you save.")) : "")));
+        current ? [el("p", { class: "sub", style: "margin-top:0" }, "This is the current draft. Pick an older version to see what changed since."), el("pre", { class: "plain" }, readable(kind, item).join("\n"))]
+          : [el("p", { class: "sub", style: "margin-top:0" }, `What changed from ${label(pick).toLowerCase()} to the current draft.`),
+            old.deleted || !item ? diffView(readable(kind, old), readable(kind, item)) : [changeList(kind, old, item), el("h3", { class: "minor" }, "All of it, line by line"), diffView(readable(kind, old), readable(kind, item), { context: 99 })],
+            !old.deleted && item ? el("div", { class: "actions" }, el("button", { class: "btn", onclick: () => restore(kind, id, old, hist.length - pick) }, `Restore ${label(pick).toLowerCase()}`),
+              el("span", { class: "note" }, "Opens it in the form. Nothing changes until you save.")) : ""])));
 }
 function restore(kind, id, old, label) {
   history.pushState(null, "", itemHref(kind, id));
@@ -811,6 +1065,7 @@ function restore(kind, id, old, label) {
   S.flash = { type: "warn", text: `Showing version ${label}. Save draft to keep it, or leave without saving.` };
   S.form.rerender();
 }
+
 
 // --- unpublished changes
 function changesPage() {
@@ -830,23 +1085,39 @@ function changesPage() {
     } catch (e) { msg.replaceChildren(errorBanner(e, "It can't be published yet:")); pub.disabled = false; }
   });
   const label = { added: "New", edited: "Edited", deleted: "Deleted" };
-  const versions = (i) => i.change === "edited" ? `version ${i.released_version} is live, version ${i.version} is the draft` : "";
-  page(false, flash(), el("h1", {}, "Unpublished changes"),
+  const item = (i) => {
+    const href = i.change === "deleted" ? null : itemHref(i.kind, i.id);
+    let body;
+    if (i.change === "edited" && i.before && i.after) body = changeList(i.kind, i.before, i.after);
+    else if (i.change === "added" && i.after) body = el("pre", { class: "plain add" }, readable(i.kind, i.after).join("\n"));
+    else if (i.change === "deleted" && i.before) body = el("pre", { class: "plain del" }, readable(i.kind, i.before).join("\n"));
+    else body = el("p", { class: "note" }, "The draft has errors, so the details can't be shown.");
+    const n = i.change === "edited" && i.before && i.after ? fieldChanges(i.kind, i.before, i.after).length : 0;
+    return el("details", { class: "change", open: true },
+      el("summary", {}, el("span", { class: "tag " + i.change }, label[i.change]), el("b", {}, i.name), el("span", { class: "muted" }, KIND[i.kind].one),
+        n ? el("span", { class: "note" }, plural(n, "field", "fields")) : "", el("span", { class: "spacer" }), href ? el("a", { href, class: "note", onclick: (e) => e.stopPropagation() }, "Open") : ""),
+      el("div", { class: "change-body" }, body));
+  };
+  const agent = (a, open) => {
+    const c = promptCounts(a);
+    return el("details", { class: "change", open },
+      el("summary", {}, el("span", { class: "tag " + a.status }, { added: "New agent", changed: "Prompt changes", removed: "Removed" }[a.status]), el("b", {}, a.agent),
+        el("span", { class: "muted" }, a.platform_ref), counts(c), el("span", { class: "spacer" }),
+        a.status === "removed" ? "" : el("a", { href: `#/agents/${encodeURIComponent(a.agent)}/prompt`, class: "note", onclick: (e) => e.stopPropagation() }, "Full prompts")),
+      el("div", { class: "change-body" }, diffView(a.released_prompt, a.prompt)));
+  };
+  page(false, flash(),
+    el("div", { class: "title-row" }, el("h1", {}, "Unpublished changes"),
+      d.items.length ? el("span", { class: "tag changed big" }, plural(d.items.length, "change", "changes")) : "",
+      changed.length ? el("span", { class: "tag changed big" }, plural(changed.length, "agent changes", "agents change")) : ""),
     el("p", { class: "sub" }, d.release ? `Agents are on release #${d.release}. Saved edits wait here until you publish them.` : "Nothing is live yet. Publishing sends the first release to your agents."),
     errors.length ? el("div", { class: "banner err" }, "Fix these before publishing:", issueList(errors)) : "",
-    el("div", { class: "panel" }, el("h2", {}, d.items.length ? plural(d.items.length, "change", "changes") : "No changes"),
-      d.items.length ? el("table", { class: "list" }, d.items.map((i) => {
-        const href = i.change === "deleted" ? null : itemHref(i.kind, i.id);
-        return el("tr", { class: href ? "click" : "", onclick: href ? () => { location.hash = href; } : null },
-          el("td", {}, el("b", {}, i.name)), el("td", { class: "muted" }, KIND[i.kind].one), el("td", {}, el("span", { class: "tag " + i.change }, label[i.change])), el("td", { class: "note" }, versions(i)));
-      })) : el("p", { class: "note" }, "Edits you save show up here.")),
-    el("div", { class: "panel" }, el("h2", {}, changed.length ? `${plural(changed.length, "agent gets", "agents get")} a new prompt` : "No agent's prompt changes"),
-      changed.length ? el("table", { class: "list" }, changed.map((a) => el("tr", { class: a.status === "removed" ? "" : "click", onclick: a.status === "removed" ? null : () => go("agents", a.agent, "prompt") },
-        el("td", {}, el("b", {}, a.agent)), el("td", { class: "muted" }, a.platform_ref),
-        el("td", {}, el("span", { class: "tag " + a.status }, { added: "New agent", changed: "Prompt changes", removed: "Removed" }[a.status])),
-        el("td", { class: "note" }, a.status === "removed" ? "" : "Compare prompts")))) : d.items.length ? el("p", { class: "note" }, "The saved edits don't change what any agent is told.") : ""),
-    warnings.length ? el("div", { class: "banner warn" }, "Worth a look (these don't block publishing):", issueList(warnings)) : "",
-    el("div", { class: "actions" }, pub, note), msg);
+    d.items.length ? el("div", { class: "actions top-actions" }, pub, note) : "", msg,
+    el("h2", { class: "section-title" }, d.items.length ? "What was edited" : "Nothing to publish"),
+    d.items.length ? d.items.map(item) : el("p", { class: "note" }, "Edits you save show up here, with what changed in each field and in each agent's prompt."),
+    d.items.length ? [el("h2", { class: "section-title" }, changed.length ? `How ${changed.length === 1 ? "the agent's prompt changes" : "agents' prompts change"}` : "No agent's prompt changes"),
+      changed.length ? changed.map((a, i) => agent(a, i < 3)) : el("p", { class: "note" }, "The saved edits don't change what any agent is told.")] : "",
+    warnings.length ? el("div", { class: "banner warn", style: "margin-top:18px" }, "Worth a look (these don't block publishing):", issueList(warnings)) : "");
 }
 
 // --- releases

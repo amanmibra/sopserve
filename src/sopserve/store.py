@@ -254,6 +254,11 @@ class Store:
                     changes[new["file"]] = None
             return self._write(conn, ws, changes, author, note, replace=False)
 
+    def _parse(self, kind: str, id: str, path: str, content: str) -> dict:
+        """One item's fields from one file's content, read by sopc on its own."""
+        files = {path: content} if kind == "settings" else {forms.CONFIG: "", path: content}
+        return forms.find(forms.from_export(self.sopc.export(files)), kind, id)
+
     def item_history(self, workspace: str, kind: str, id: str) -> list[dict]:
         """Every version of an item, newest first. A procedure moved from Markdown to YAML keeps both histories."""
         ws = _ws(workspace)
@@ -280,8 +285,7 @@ class Store:
                 continue
             if row["deleted"]:
                 return {"id": id, "version": version, "deleted": True, "file": path, "updated_at": row["created_at"], "updated_by": row["author"]}
-            files = {path: row["content"]} if kind == "settings" else {forms.CONFIG: "", path: row["content"]}
-            found = forms.find(forms.from_export(self.sopc.export(files)), kind, id)
+            found = self._parse(kind, id, path, row["content"])
             return {**found, "file": path, "version": version, "deleted": False, "updated_at": row["created_at"], "updated_by": row["author"]}
         raise NotFound(f"{_KIND_NAMES[kind]} '{id}' has no version {version}")
 
@@ -306,8 +310,8 @@ class Store:
 
         compiled = self.sopc.compile({r["path"]: r["content"] for r in head}) if head else None
         names = {}
-        if compiled and compiled.valid:
-            head_items = self._items(head)
+        head_items = self._items(head) if compiled and compiled.valid else None
+        if head_items:
             for key, kind in (("agents", "agent"), ("bases", "base"), ("procedures", "procedure")):
                 for it in head_items[key]:
                     names[(kind, it["id"])] = it.get("name") or it["id"]
@@ -328,6 +332,16 @@ class Store:
                 "version": f["version"] if f["version"] is not None else (prev or {}).get("version"),
                 "released_version": f["released_version"] if f["released_version"] is not None else (prev or {}).get("released_version"),
             }
+        # Each changed item's fields before (as released) and after (head), for a field-by-field summary.
+        for (kind, id), item in items.items():
+            after = forms.find(head_items, kind, id) if head_items else None
+            item["after"] = _fields(kind, after) if after is not None and item["change"] != "deleted" else None
+            item["before"] = None
+            released = [p for p in forms.paths_of(kind, id) if p in live_files]
+            if released:
+                row = self.file(ws, released[0], live_files[released[0]])
+                if row["content"] is not None:
+                    item["before"] = _fields(kind, self._parse(kind, id, released[0], row["content"]))
         draft_agents = compiled.agents if compiled and compiled.valid else {}
         agents = []
         for agent_id in sorted(set(draft_agents) | set(live_agents)):
@@ -341,6 +355,7 @@ class Store:
                     "hash": new["hash"] if new else None,
                     "released_hash": old["hash"] if old else None,
                     "prompt": new["prompt"] if new else None,
+                    "released_prompt": old["prompt"] if old else None,
                     "components": _components(new["blocks"], head_versions) if new else [],
                 }
             )
@@ -534,6 +549,11 @@ _KIND_NAMES = {"agent": "agent", "base": "shared instruction", "procedure": "pro
 def _name_taken(kind: str, id: str, other: str) -> Issue:
     text = f"'{id}' is already the name of {other}; pick another name."
     return Issue("duplicate_id", text, "", "error", kind=kind, id=id, field="id", text=text)
+
+
+def _fields(kind: str, item: dict) -> dict:
+    """Just what a form edits (no versions or file paths)."""
+    return {"id": item.get("id", "settings"), **{f: item[f] for f in forms.FIELDS[kind]}}
 
 
 def _check_paths(files: dict) -> None:

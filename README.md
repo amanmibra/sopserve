@@ -74,7 +74,7 @@ Saves are drafts like any other edit; ids can't be renamed yet.
 | `PUT …/files` | `{files, author?, note?}`: replace head; files not listed are deleted |
 | `GET …/files/<path>?version=N` | A file at head or at a version |
 | `GET …/history/<path>` | Every version of a file |
-| `GET …/draft` | Unpublished changes: files and `items` changed since the current release, and agents added, changed, removed or unchanged, with draft prompts |
+| `GET …/draft` | Unpublished changes: files and `items` changed since the current release (each with its fields `before` and `after`), and agents added, changed, removed or unchanged, with the draft and released prompts |
 | `POST …/releases` | `{author?, note?}`: release head and serve it (returns the current release if nothing changed) |
 | `GET …/releases`, `GET …/releases/<n>` | Release history; one release with every agent's prompt |
 | `POST …/releases/<n>/activate` | Serve an older release (roll back) |

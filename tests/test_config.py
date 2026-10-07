@@ -98,9 +98,11 @@ def test_create_edit_delete_agent(seeded):
     assert seeded.post(f"{CFG}/agents", json=new).status_code == 409
 
     draft = seeded.get(f"{WS}/draft").json()
-    assert draft["items"] == [{"kind": "agent", "id": "pho-corner", "name": "pho-corner", "change": "added", "version": 1, "released_version": None}]
+    [added] = draft["items"]
+    assert {k: added[k] for k in ("kind", "id", "name", "change", "version", "released_version", "before")} == {"kind": "agent", "id": "pho-corner", "name": "pho-corner", "change": "added", "version": 1, "released_version": None, "before": None}
+    assert added["after"]["platform_id"] == "asst_9f3e" and added["after"]["exclude"] == ["delivery-handling"] and "file" not in added["after"]
     pho = next(a for a in draft["agents"] if a["agent"] == "pho-corner")
-    assert pho["status"] == "added" and pho["platform_ref"] == "vapi:asst_9f3e" and "Pho Corner" in pho["prompt"]
+    assert pho["status"] == "added" and pho["platform_ref"] == "vapi:asst_9f3e" and "Pho Corner" in pho["prompt"] and pho["released_prompt"] is None
     assert "### Delivery" not in pho["prompt"]
 
     edited = {**new, "instructions": "Pho Corner is a noodle shop.", "exclude": [], "author": None, "note": None}
@@ -125,8 +127,15 @@ def test_deleting_an_agent_removes_it_from_targeting(seeded):
     changed = {c["path"] for c in res.json()["changed"]}
     assert changed == {"agents/tonys-pizza.yaml", "procedures/large-orders.yaml"}
     assert seeded.get(f"{CFG}/procedures/large-orders").json()["agents"] == ["luigis-trattoria"]
-    items = {(i["kind"], i["id"]): i["change"] for i in seeded.get(f"{WS}/draft").json()["items"]}
-    assert items == {("agent", "tonys-pizza"): "deleted", ("procedure", "large-orders"): "edited"}
+    draft = seeded.get(f"{WS}/draft").json()
+    items = {(i["kind"], i["id"]): i for i in draft["items"]}
+    assert {k: i["change"] for k, i in items.items()} == {("agent", "tonys-pizza"): "deleted", ("procedure", "large-orders"): "edited"}
+    assert items[("agent", "tonys-pizza")]["after"] is None and items[("agent", "tonys-pizza")]["before"]["platform_id"] == "tonys-pizza"
+    large = items[("procedure", "large-orders")]
+    assert large["before"]["agents"] == ["tonys-pizza", "luigis-trattoria"] and large["after"]["agents"] == ["luigis-trattoria"]
+    assert large["before"]["steps"] == large["after"]["steps"]
+    removed = next(a for a in draft["agents"] if a["agent"] == "tonys-pizza")
+    assert removed["status"] == "removed" and removed["prompt"] is None and removed["released_prompt"] == expected("tonys-pizza.prompt.md")
 
 
 def test_shared_instructions(seeded):
@@ -259,7 +268,10 @@ def test_markdown_procedure_from_git_round_trips(client, files):
     )
     old = client.get(f"{CFG}/procedures/allergen-check/versions/1", params={"file": "procedures/allergen-check.md"}).json()
     assert old["never"][-1]["text"] == "Never place the order before allergens are confirmed"
-    assert [(i["kind"], i["change"]) for i in client.get(f"{WS}/draft").json()["items"]] == [("procedure", "edited")]
+    [item] = client.get(f"{WS}/draft").json()["items"]
+    assert (item["kind"], item["change"]) == ("procedure", "edited")
+    assert item["before"]["guidance"].startswith("Parents often ask") and item["after"]["guidance"] == "## Not a section\nJust guidance."
+    assert len(item["after"]["never"]) == len(item["before"]["never"]) + 1  # read from the released Markdown file
 
 
 TRICKY = [

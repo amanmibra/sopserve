@@ -142,6 +142,7 @@ class DraftAgent(BaseModel):
     hash: str | None
     released_hash: str | None
     prompt: str | None = Field(description="The draft prompt; null if removed.")
+    released_prompt: str | None = Field(description="The prompt in the current release; null if added.")
     components: list[Component]
 
 
@@ -356,6 +357,8 @@ class DraftItem(BaseModel):
     change: Literal["added", "edited", "deleted"]
     version: int | None
     released_version: int | None
+    before: dict[str, Any] | None = Field(description="Its fields in the current release; null if added.")
+    after: dict[str, Any] | None = Field(description="Its fields in the draft; null if deleted.")
 
 
 # --- app ----------------------------------------------------------------------
