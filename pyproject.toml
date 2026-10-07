@@ -1,14 +1,17 @@
 [project]
 name = "sopserve"
-version = "0.0.1"
-description = "Serve OpenSOP-built agent prompts at call start."
+version = "0.1.0"
+description = "Versioned sopc workspaces, and each agent's compiled prompt at call start."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "opensop @ git+https://github.com/amanmibra/opensop@v0.0.1",
     "fastapi>=0.115",
     "uvicorn>=0.30",
+    "sqlalchemy>=2.0",
 ]
+
+[project.optional-dependencies]
+postgres = ["psycopg[binary]>=3.1"]
 
 [project.scripts]
 sopserve = "sopserve.cli:main"
@@ -19,9 +22,6 @@ dev = ["pytest>=8", "httpx2"]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/sopserve"]

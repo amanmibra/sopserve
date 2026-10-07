@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sopserve</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #e3e2dd;
+    --accent: #2f5bd3; --accent-text: #fff; --ok: #1f7a4d; --warn: #9a6200; --err: #b42318; --code: #f1f0ec;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161615; --panel: #1f1f1d; --text: #ecebe6; --muted: #9b9a93; --line: #34332f;
+      --accent: #7c9cf0; --accent-text: #111; --ok: #5fc08f; --warn: #e0a640; --err: #f0786c; --code: #262624; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; gap: 12px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0 8px 0 0; }
+  main { display: grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 53px); }
+  aside { border-right: 1px solid var(--line); padding: 12px; overflow: auto; background: var(--panel); }
+  section.view { padding: 16px 20px; overflow: auto; min-width: 0; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
+  h3 { font-size: 15px; margin: 0 0 10px; }
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li { display: flex; justify-content: space-between; gap: 8px; padding: 4px 8px; border-radius: 6px; cursor: pointer; }
+  ul.list li:hover, ul.list li.active { background: var(--code); }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .mono, textarea, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  button { font: inherit; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+  button.danger { color: var(--err); }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; padding: 5px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--text); max-width: 100%; }
+  textarea { width: 100%; min-height: 420px; padding: 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--text); resize: vertical; }
+  pre { background: var(--code); padding: 10px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; margin: 0; max-height: 70vh; overflow: auto; }
+  a { color: var(--accent); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 10px; background: var(--code); color: var(--muted); white-space: nowrap; }
+  .s-added, .s-edited, .s-changed { color: var(--warn); } .s-deleted, .s-removed { color: var(--err); } .s-live { color: var(--ok); }
+  .issues { margin: 8px 0; padding: 0; list-style: none; }
+  .issues li { padding: 6px 10px; border-left: 3px solid var(--err); background: var(--code); margin-bottom: 4px; border-radius: 4px; }
+  .issues li.warning { border-color: var(--warn); }
+  .msg { padding: 6px 10px; border-radius: 6px; background: var(--code); margin: 8px 0; }
+  .msg.ok { color: var(--ok); } .msg.err { color: var(--err); }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  table { border-collapse: collapse; width: 100%; } td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .hidden { display: none !important; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>sopserve</h1>
+  <select id="ws" aria-label="Workspace"></select>
+  <input id="new-ws" placeholder="new workspace" size="16">
+  <button id="new-ws-btn">Open</button>
+  <span style="flex:1"></span>
+  <input id="author" placeholder="your name" size="14" aria-label="Your name">
+  <span id="token-box" class="hidden"><input id="token" type="password" placeholder="API token" size="18"> <button id="token-btn" class="primary">Use token</button></span>
+</header>
+<main>
+  <aside>
+    <div class="row"><button id="show-draft" class="primary">Unpublished changes</button><button id="new-file">New file</button></div>
+    <div id="files"></div>
+    <h2>Agent prompts</h2><ul class="list" id="agents"></ul>
+    <h2>Releases</h2><ul class="list" id="releases"></ul>
+  </aside>
+  <section class="view" id="view"><p class="muted">Pick a workspace.</p></section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const local = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const state = { ws: local.get("sopserve.ws") || "", draft: null, files: [], releases: [], selected: null };
+
+async function api(method, path, body) {
+  const headers = { "Content-Type": "application/json" };
+  const token = local.get("sopserve.token");
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  if (res.status === 401) { $("token-box").classList.remove("hidden"); throw new Error("Enter an API token to continue."); }
+  const data = (res.headers.get("content-type") || "").includes("json") ? await res.json() : await res.text();
+  if (!res.ok) { const err = new Error(data.detail || `HTTP ${res.status}`); err.data = data; throw err; }
+  return data;
+}
+const wsPath = (p = "") => `/v1/workspaces/${encodeURIComponent(state.ws)}${p}`;
+const filePath = (p) => p.split("/").map(encodeURIComponent).join("/");
+const author = () => $("author").value.trim() || null;
+const when = (t) => new Date(t).toLocaleString();
+
+function issuesHtml(issues) {
+  if (!issues || !issues.length) return "";
+  return `<ul class="issues">${issues.map((i) => `<li class="${esc(i.severity)}"><b>${esc(i.code)}</b> ${i.path ? `<span class="mono">${esc(i.path)}</span>: ` : ""}${esc(i.message)}</li>`).join("")}</ul>`;
+}
+function errorHtml(e) { return e.data && e.data.issues ? issuesHtml(e.data.issues) : `<div class="msg err">${esc(e.message)}</div>`; }
+function showError(e, el) { if (el) el.innerHTML = errorHtml(e); else $("view").insertAdjacentHTML("afterbegin", errorHtml(e)); }
+// Two clicks instead of a browser confirm dialog.
+function confirmClick(btn, label, action) {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.armed) return action();
+    btn.dataset.armed = "1"; const old = btn.textContent; btn.textContent = label;
+    setTimeout(() => { delete btn.dataset.armed; btn.textContent = old; }, 3000);
+  });
+}
+
+// --- loading ------------------------------------------------------------------
+
+async function loadWorkspaces() {
+  try {
+    const list = await api("GET", "/v1/workspaces");
+    $("token-box").classList.add("hidden");
+    const names = list.map((w) => w.workspace);
+    if (state.ws && !names.includes(state.ws)) names.push(state.ws);
+    if (!state.ws && names.length) state.ws = names[0];
+    $("ws").innerHTML = names.map((n) => `<option ${n === state.ws ? "selected" : ""}>${esc(n)}</option>`).join("") || `<option value="">no workspaces</option>`;
+    if (state.ws) await refresh();
+  } catch (e) { $("view").innerHTML = errorHtml(e); }
+}
+
+async function refresh() {
+  local.set("sopserve.ws", state.ws);
+  const [files, draft, releases] = await Promise.all([api("GET", wsPath("/files")), api("GET", wsPath("/draft")), api("GET", wsPath("/releases"))]);
+  state.files = files.files; state.draft = draft; state.releases = releases;
+  renderSidebar();
+}
+
+function group(path) {
+  if (path === "sopc.yaml") return "Config";
+  for (const [dir, name] of [["agents/", "Agents"], ["bases/", "Bases"], ["procedures/", "Procedures"]]) if (path.startsWith(dir)) return name;
+  return "Other";
+}
+
+function renderSidebar() {
+  const groups = { Agents: [], Bases: [], Procedures: [], Config: [], Other: [] };
+  const changed = new Map(state.draft.files.map((f) => [f.path, f.change]));
+  state.files.forEach((f) => groups[group(f.path)].push(f));
+  $("files").innerHTML = Object.entries(groups).filter(([, fs]) => fs.length).map(([g, fs]) => `<h2>${g}</h2><ul class="list">${fs.map((f) =>
+    `<li data-path="${esc(f.path)}" class="${state.selected === "file:" + f.path ? "active" : ""}"><span class="mono">${esc(f.path.includes("/") ? f.path.slice(f.path.indexOf("/") + 1) : f.path)}</span><span>${changed.has(f.path) ? `<span class="badge s-${changed.get(f.path)}">${changed.get(f.path)}</span> ` : ""}<span class="badge">v${f.version}</span></span></li>`).join("")}</ul>`).join("")
+    || `<h2>Files</h2><p class="muted small">No files yet. Start with <span class="mono">sopc.yaml</span> (it can be empty).</p>`;
+  $("files").querySelectorAll("li").forEach((li) => li.addEventListener("click", () => openFile(li.dataset.path)));
+
+  $("agents").innerHTML = state.draft.agents.map((a) => `<li data-agent="${esc(a.agent)}" class="${state.selected === "agent:" + a.agent ? "active" : ""}"><span>${esc(a.agent)}</span>${a.status === "unchanged" ? "" : `<span class="badge s-${a.status}">${a.status}</span>`}</li>`).join("") || `<li class="muted small">none</li>`;
+  $("agents").querySelectorAll("li[data-agent]").forEach((li) => li.addEventListener("click", () => openAgent(li.dataset.agent)));
+
+  $("releases").innerHTML = state.releases.map((r) => `<li data-n="${r.number}" class="${state.selected === "release:" + r.number ? "active" : ""}"><span>#${r.number} <span class="muted small">${esc(r.note || "")}</span></span>${r.current ? `<span class="badge s-live">live</span>` : ""}</li>`).join("") || `<li class="muted small">none yet</li>`;
+  $("releases").querySelectorAll("li[data-n]").forEach((li) => li.addEventListener("click", () => openRelease(+li.dataset.n)));
+
+  const pending = state.draft.files.length;
+  $("show-draft").textContent = pending ? `Unpublished changes (${pending})` : "Unpublished changes";
+}
+
+function select(key) { state.selected = key; renderSidebar(); }
+
+// --- views --------------------------------------------------------------------
+
+function showDraft(message) {
+  select("draft");
+  const d = state.draft;
+  const files = d.files.length
+    ? `<table>${d.files.map((f) => `<tr><td class="mono">${esc(f.path)}</td><td class="s-${f.change}">${f.change}</td><td class="muted">${f.released_version ? "v" + f.released_version : "new"} → ${f.version ? "v" + f.version : "deleted"}</td></tr>`).join("")}</table>`
+    : `<p class="muted">No unpublished changes.</p>`;
+  const agents = d.agents.filter((a) => a.status !== "unchanged");
+  $("view").innerHTML = `${message || ""}<div class="card"><h3>Unpublished changes</h3>
+    <p class="muted">${d.release ? `Live: release #${d.release}.` : "Nothing is live yet."} Saved edits are drafts; agents get them only after you publish.</p>
+    ${issuesHtml(d.issues)}${files}
+    ${agents.length ? `<h2>Agents affected</h2><ul class="list">${agents.map((a) => `<li data-agent="${esc(a.agent)}"><span>${esc(a.agent)} <span class="muted small">${esc(a.platform_ref)}</span></span><span class="badge s-${a.status}">${a.status}</span></li>`).join("")}</ul>` : ""}
+    <div class="row"><input id="pub-note" placeholder="What changed? (optional)" size="40"><button id="publish" class="primary" ${d.files.length ? "" : "disabled"}>Publish</button></div><div id="pub-msg"></div></div>`;
+  $("view").querySelectorAll("li[data-agent]").forEach((li) => li.addEventListener("click", () => openAgent(li.dataset.agent)));
+  $("publish").addEventListener("click", async () => {
+    try {
+      const r = await api("POST", wsPath("/releases"), { author: author(), note: $("pub-note").value.trim() || null });
+      await refresh();
+      showDraft(`<div class="msg ok">${r.created ? `Published release #${r.release.number}. Agents get it on their next call.` : "Nothing new to publish."}</div>`);
+    } catch (e) { showError(e, $("pub-msg")); }
+  });
+}
+
+async function openFile(path, version, message) {
+  select("file:" + path);
+  try {
+    const [file, history] = await Promise.all([
+      api("GET", wsPath(`/files/${filePath(path)}${version ? `?version=${version}` : ""}`)), api("GET", wsPath(`/history/${filePath(path)}`)),
+    ]);
+    const old = file.version !== history[0].version;
+    $("view").innerHTML = `<div class="card"><div class="row" style="justify-content:space-between"><h3 class="mono" style="margin:0">${esc(path)}</h3>
+      <select id="ver" aria-label="Version">${history.map((h) => `<option value="${h.version}" ${h.version === file.version ? "selected" : ""}>v${h.version}${h.deleted ? " (deleted)" : ""} · ${when(h.created_at)}${h.author ? " · " + esc(h.author) : ""}${h.note ? " · " + esc(h.note) : ""}</option>`).join("")}</select></div>
+      ${old ? `<div class="msg">Viewing v${file.version}${file.deleted ? " (deleted)" : ""}. Saving restores this content as a new version.</div>` : ""}
+      <textarea id="content" spellcheck="false">${esc(file.content ?? "")}</textarea>
+      <div class="row"><input id="note" placeholder="Note (optional)" size="40"><button id="save" class="primary">Save draft</button><button id="del" class="danger">Delete</button></div>
+      <div id="file-msg">${message || ""}</div></div>`;
+    $("ver").addEventListener("change", (e) => openFile(path, +e.target.value));
+    $("save").addEventListener("click", () => saveFile(path, $("content").value));
+    confirmClick($("del"), "Click again to delete", () => saveFile(path, null));
+  } catch (e) { $("view").innerHTML = errorHtml(e); }
+}
+
+async function saveFile(path, content) {
+  try {
+    const r = await api("POST", wsPath("/files"), { changes: { [path]: content }, author: author(), note: $("note").value.trim() || null });
+    await refresh();
+    if (content === null) return showDraft(`<div class="msg ok">Deleted <span class="mono">${esc(path)}</span> in the draft.</div>`);
+    await openFile(path, undefined, `<div class="msg ok">${r.changed.length ? `Saved v${r.changed[0].version} as a draft. Publish to make it live.` : "No changes."}</div>`);
+  } catch (e) { showError(e, $("file-msg")); }
+}
+
+function newFile() {
+  select("new");
+  $("view").innerHTML = `<div class="card"><h3>New file</h3>
+    <div class="row"><select id="nf-dir" aria-label="Folder"><option value="agents/">agents/</option><option value="bases/">bases/</option><option value="procedures/">procedures/</option><option value="">(root)</option></select>
+    <input id="nf-name" placeholder="name.yaml or name.md" size="28"></div>
+    <textarea id="content" spellcheck="false" placeholder="File content"></textarea>
+    <div class="row"><input id="note" placeholder="Note (optional)" size="40"><button id="create" class="primary">Create draft</button></div><div id="file-msg"></div></div>`;
+  $("create").addEventListener("click", () => {
+    const name = $("nf-name").value.trim();
+    if (!name) { $("file-msg").innerHTML = `<div class="msg err">Give the file a name.</div>`; return; }
+    saveFile($("nf-dir").value + name, $("content").value);
+  });
+}
+
+async function openAgent(id) {
+  select("agent:" + id);
+  const a = state.draft.agents.find((x) => x.agent === id);
+  let live = null;
+  try { if (state.draft.release) live = (await api("GET", wsPath(`/releases/${state.draft.release}`))).agents[id] || null; } catch (e) { return showError(e); }
+  const comps = (list, title) => `<h2>${title}</h2><table>${list.map((c) => `<tr><td>${c.kind}</td><td class="mono">${esc(c.path || c.id)}</td><td>v${c.version ?? "?"}</td></tr>`).join("")}</table>`;
+  $("view").innerHTML = `<div class="card"><h3>${esc(id)} <span class="muted small">${esc(a.platform_ref)}</span> ${a.status === "unchanged" ? "" : `<span class="badge s-${a.status}">${a.status}</span>`}</h3>
+    <div class="cols"><div>${a.prompt !== null ? comps(a.components, "Draft components") : ""}</div><div>${live ? comps(live.components, `Live components (release #${state.draft.release})`) : ""}</div></div>
+    <div class="cols" style="margin-top:12px"><div><h2>Draft prompt</h2>${a.prompt !== null ? `<pre>${esc(a.prompt)}</pre>` : `<p class="muted">Removed in the draft.</p>`}</div>
+    <div><h2>Live prompt</h2>${live ? `<pre>${esc(live.prompt)}</pre>` : `<p class="muted">Not live yet.</p>`}</div></div></div>`;
+}
+
+async function openRelease(n, message) {
+  select("release:" + n);
+  try {
+    const r = await api("GET", wsPath(`/releases/${n}`));
+    $("view").innerHTML = `<div class="card"><div class="row" style="justify-content:space-between"><h3 style="margin:0">Release #${r.number} ${r.current ? `<span class="badge s-live">live</span>` : ""}</h3>
+      ${r.current ? "" : `<button id="activate" class="primary">Make live</button>`}</div>
+      <p class="muted">${when(r.created_at)}${r.author ? " · " + esc(r.author) : ""}${r.note ? " · " + esc(r.note) : ""}</p><div id="rel-msg">${message || ""}</div>
+      <h2>Agents</h2><table>${Object.entries(r.agents).map(([id, a]) => `<tr><td>${esc(id)}</td><td class="muted">${esc(a.platform_ref)}</td><td class="mono small">${a.hash.slice(0, 12)}</td></tr>`).join("")}</table>
+      <h2>Files</h2><table>${Object.entries(r.files).map(([p, v]) => `<tr><td class="mono"><a href="#" data-path="${esc(p)}" data-v="${v}">${esc(p)}</a></td><td>v${v}</td></tr>`).join("")}</table></div>`;
+    $("view").querySelectorAll("a[data-path]").forEach((el) => el.addEventListener("click", (e) => { e.preventDefault(); openFile(el.dataset.path, +el.dataset.v); }));
+    if ($("activate")) confirmClick($("activate"), `Click again to serve #${n}`, async () => {
+      try { await api("POST", wsPath(`/releases/${n}/activate`)); await refresh(); await openRelease(n, `<div class="msg ok">Release #${n} is live.</div>`); }
+      catch (e) { showError(e, $("rel-msg")); }
+    });
+  } catch (e) { $("view").innerHTML = errorHtml(e); }
+}
+
+// --- wiring -------------------------------------------------------------------
+
+$("author").value = local.get("sopserve.author") || "";
+$("author").addEventListener("change", () => local.set("sopserve.author", $("author").value.trim()));
+$("ws").addEventListener("change", async (e) => { state.ws = e.target.value; await refresh(); showDraft(); });
+$("new-ws-btn").addEventListener("click", async () => {
+  const name = $("new-ws").value.trim();
+  if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name)) { $("view").innerHTML = `<div class="msg err">Workspace names use letters, digits, '.', '_' and '-'.</div>`; return; }
+  state.ws = name; $("new-ws").value = ""; await loadWorkspaces(); if (state.draft) showDraft();
+});
+$("token-btn").addEventListener("click", async () => { local.set("sopserve.token", $("token").value.trim()); $("token").value = ""; await loadWorkspaces(); if (state.draft) showDraft(); });
+$("show-draft").addEventListener("click", () => state.draft && showDraft());
+$("new-file").addEventListener("click", () => state.ws && newFile());
+loadWorkspaces().then(() => state.draft && showDraft());
+</script>
+</body>
+</html>

@@ -1,6 +1,7 @@
-"""sopserve [--host H] [--port P] [--data-dir DIR]
+"""sopserve [--host H] [--port P] [--database-url URL]
 
-Set SOPSERVE_TOKEN to require `Authorization: Bearer <token>`.
+Env: DATABASE_URL (default sqlite:///sopserve.db), SOPSERVE_TOKEN to require `Authorization: Bearer <token>`,
+SOPC_BIN for the sopc binary (default: `sopc` on PATH).
 """
 
 from __future__ import annotations
@@ -11,16 +12,20 @@ import os
 import uvicorn
 
 from .app import create_app
-from .store import FileStore
+from .sopc import Sopc
+from .store import Store
 
 
 def main(argv: list[str] | None = None) -> None:
-    parser = argparse.ArgumentParser(prog="sopserve", description="Serve OpenSOP-built agent prompts over HTTP.")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8484)
-    parser.add_argument("--data-dir", default=os.environ.get("SOPSERVE_DATA_DIR", ".sopserve-data"))
+    parser = argparse.ArgumentParser(prog="sopserve", description="Versioned sopc workspaces, and each agent's prompt at call start.")
+    parser.add_argument("--host", default=os.environ.get("HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8484)))
+    parser.add_argument("--database-url", default=os.environ.get("DATABASE_URL", "sqlite:///sopserve.db"))
     args = parser.parse_args(argv)
-    uvicorn.run(create_app(FileStore(args.data_dir), os.environ.get("SOPSERVE_TOKEN")), host=args.host, port=args.port)
+    sopc = Sopc()
+    if not sopc.binary:
+        parser.error("sopc not found; install it or set SOPC_BIN")
+    uvicorn.run(create_app(Store(args.database_url, sopc), os.environ.get("SOPSERVE_TOKEN")), host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
