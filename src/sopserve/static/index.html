@@ -980,6 +980,12 @@ function agentPage(id, tab) {
     const seg = el("div", { class: "seg small", role: "group", "aria-label": "Preview" }, [["prompt", "Prompt"], ["changes", "Changes vs live"]].map(([v, l]) =>
       el("button", { type: "button", "aria-pressed": String(shown === v), onclick: () => { view = v; local.set("sopserve.previewmode", v); drawPreview(); } }, l)));
     const errors = r ? r.issues.filter((i) => i.severity === "error") : [];
+    // Nothing to compare: just the prompt, and say why there's no diff.
+    if (r && r.valid && (r.released_prompt === null || r.prompt === r.released_prompt)) {
+      const why = r.released_prompt === null ? "Not published yet" : `Same as live (release #${r.release})`;
+      preview.replaceChildren(el("header", {}, el("b", {}, "Draft prompt"), el("span", { class: "spacer" }), el("span", { class: "note" }, why)), el("pre", {}, r.prompt));
+      return;
+    }
     const body = !r ? el("p", { class: "note pad" }, "Building…")
       : !r.valid ? el("div", { class: "pad" }, el("div", { class: "banner err" }, "This draft can't be built yet:", issueList(errors.length ? errors : r.issues, { kind: "agent", id: f.model.id || id })))
       : shown === "prompt" ? el("pre", {}, r.prompt)
@@ -1351,6 +1357,13 @@ async function promptPage(id) {
       draftPrompt !== null ? el("div", {}, el("span", { class: "note" }, "Draft: "), parts(draft.components)) : ""),
     diffView(livePrompt, draftPrompt, { empty: "The draft prompt is the same as the live one." }));
   const drawArea = () => area.replaceChildren(showing === "changes" ? changes() : full());
+  // Nothing to compare (same as live, or never published): just the prompt.
+  if (draftPrompt !== null && (livePrompt === null || livePrompt === draftPrompt)) {
+    const why = livePrompt === null ? "Not published yet" : `Same as live (release #${live.release})`;
+    return page(true, ...head,
+      el("section", { class: "prompt" }, el("header", {}, el("b", {}, livePrompt === null ? "Draft" : "Prompt"), el("span", { class: "note" }, why), draft.hash ? el("span", { class: "note" }, `hash ${draft.hash.slice(0, 10)}`) : ""),
+        parts(draft.components), el("pre", {}, draftPrompt)));
+  }
   const c = diffCount(diffLines(splitLines(livePrompt), splitLines(draftPrompt)));
   page(true, ...head,
     el("div", { class: "title-row", style: "margin-bottom:14px" }, el("p", { class: "sub", style: "margin:0" }, sub), el("span", { class: "spacer" }), status !== "unchanged" ? counts(c) : "",
