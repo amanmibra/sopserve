@@ -54,7 +54,13 @@ With Docker, from a clone: `docker build -t sopserve . && docker run -p 8484:848
 | Agent | One per voice agent: platform id, its own text, its blocks in order, variables. |
 | Release | What agents are served. Pin one per call for A/B tests. |
 
-The Overview page shows every agent against every block, and a click adds or removes one.
+The Overview page shows every agent against every block, and a click adds or removes one:
+
+<p align="center"><img src="docs/images/overview.png" alt="Overview: a grid of agents against groups, shared instructions and procedures, with checkmarks, including blocks that come through a group" width="860"></p>
+
+Before you publish, Unpublished changes shows what was edited and exactly how each agent's prompt changes:
+
+<p align="center"><img src="docs/images/changes.png" alt="Unpublished changes: one block added to tonys-pizza's list, and the resulting prompt diff with the new Reservations procedure" width="860"></p>
 
 ## Use it from your agent
 
