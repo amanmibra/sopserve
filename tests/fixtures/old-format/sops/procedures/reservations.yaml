@@ -1,4 +1,5 @@
 name: Reservations
+agents: [sakura-sushi, luigis-trattoria]
 description: The customer has a confirmed table, or knows exactly why one isn't available.
 scope: The customer wants to book, change or cancel a table.
 procedureSteps:

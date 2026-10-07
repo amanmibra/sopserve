@@ -1,4 +1,5 @@
 name: Large orders
+agents: [tonys-pizza, luigis-trattoria]
 delivery: auto
 description: Orders over 10 items are placed with a confirmed pickup time the kitchen can meet.
 scope: Any order with more than 10 items or a total over $200.

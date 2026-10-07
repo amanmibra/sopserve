@@ -2,7 +2,7 @@
 
 Each call writes the files to a temp folder and runs `sopc validate --json`, then `sopc -o` or `sopc lint --json`;
 `sopc export` reads files into the structured items the forms edit. The binary is `SOPC_BIN`, else `sopc` on PATH.
-It needs `validate --json` and `export` (sopc after v0.0.7).
+It needs the v0.0.9 format (agents compose blocks); `sopc migrate` converts a folder in the older format.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -143,6 +144,31 @@ class Sopc:
                 self._exports.popitem(last=False)
         return body
 
+    def migrate(self, files: Files) -> dict:
+        """`sopc migrate --yes` on a copy of the files: {migrated, plan, files}. `migrated` is False if the
+        files were already in the current format. Raises Invalid if sopc can't convert them exactly."""
+        key = "migrate:" + _digest(files)
+        with self._lock:
+            if key in self._exports:
+                return self._exports[key]
+        with self._written(files) as (root, bad):
+            if bad:
+                raise Invalid(bad)
+            proc = self._run(root, "migrate", "--yes", check=False, merge_output=True)
+            out = proc.stdout.strip()
+            if proc.returncode != 0:
+                issues = [Issue(m.group(1), m.group(2), "", "error") for m in re.finditer(r"error \[([a-z_]+)\] (.*)", out)]
+                raise Invalid(issues or [Issue("migrate_failed", out[:1000] or "sopc migrate failed", "", "error")])
+            if "already in the current format" in out:
+                return {"migrated": False, "plan": "", "files": dict(files)}
+            lines = [line for line in out.splitlines() if not line.startswith(("Wrote ", "Run `sopc`"))]
+            plan = "\n".join(lines).replace("Migrating . to", "Migrating to", 1)
+            migrated = {p.relative_to(root).as_posix(): p.read_bytes().decode() for p in sorted(root.rglob("*")) if p.is_file()}
+            result = {"migrated": True, "plan": plan, "files": migrated}
+        with self._lock:
+            self._exports[key] = result
+        return result
+
     def lint(self, files: Files) -> list[dict]:
         with self._prepared(files) as (root, issues):
             if not _ok(issues):
@@ -199,13 +225,15 @@ class Sopc:
                 "sopserve needs a sopc release with `validate --json` (after v0.0.7); set SOPC_BIN to it."
             ) from None
 
-    def _run(self, root: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess:
+    def _run(self, root: Path, *args: str, check: bool = True, merge_output: bool = False) -> subprocess.CompletedProcess:
         if not self.binary:
             raise SopcUnavailable("sopc not found; install it or set SOPC_BIN")
         try:
             proc = subprocess.run(
-                [self.binary, "-C", str(root), *args],
-                capture_output=True,
+                [self.binary, "-C", ".", *args],
+                cwd=root,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT if merge_output else subprocess.PIPE,
                 text=True,
                 timeout=TIMEOUT,
                 env={**os.environ, "NO_COLOR": "1"},

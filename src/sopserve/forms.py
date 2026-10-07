@@ -1,9 +1,10 @@
-"""Agents, shared instructions (sopc bases), procedures (SOPs) and settings as structured data.
+"""Agents, shared instructions, procedures (SOPs), groups and settings as structured data.
 
 Reading goes through `sopc export`, so there is one parser (sopc's). Writing generates the sopc file
-for one item: YAML for agents, YAML procedures and sopc.yaml, Markdown with front matter for bases
-and Markdown procedures. Every generated file is read back with `sopc export` and must give exactly
-the values that were asked for; if the readable form doesn't, a fully quoted one is used instead.
+for one item: YAML for agents, YAML procedures and sopc.yaml (settings and groups), Markdown with front
+matter for instructions and Markdown procedures. Every generated file is read back with `sopc export`
+and must give exactly the values that were asked for; if the readable form doesn't, a fully quoted one
+is used instead.
 
 sopc's issues name files; `locate` maps them back to the item and field they're about, in plain words.
 """
@@ -20,11 +21,13 @@ from .sopc import Files, Invalid, Issue
 
 CONFIG = "sopc.yaml"
 PLATFORMS = ("livekit", "vapi", "elevenlabs", "retell")
-POSITIONS = ("top", "bottom")
 DELIVERIES = ("prompt", "auto", "tool")
 DEFAULT_HEADING = "## Procedures"
-KINDS = ("agent", "base", "procedure", "settings")
-FOLDERS = {"agent": "agents", "base": "bases", "procedure": "procedures"}
+KINDS = ("agent", "instruction", "procedure", "group", "settings")
+FOLDERS = {"agent": "agents", "instruction": "instructions", "procedure": "procedures"}
+PLURALS = {"agent": "agents", "instruction": "instructions", "procedure": "procedures", "group": "groups"}
+BLOCK_KINDS = ("instruction", "procedure", "group")  # what an agent's `blocks` can list; one namespace
+LEGACY_FOLDERS = {"bases": "instruction"}  # sopc v0.0.8 and earlier
 
 ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,99}$")
 VAR_RE = re.compile(r"^[A-Za-z0-9_.-]+$")
@@ -37,25 +40,28 @@ Item = dict[str, Any]
 
 
 def item_of_path(path: str) -> tuple[str, str] | None:
-    """(kind, id) for a source path, e.g. ('procedure', 'large-orders'); None for other files."""
+    """(kind, id) for a source path, e.g. ('procedure', 'large-orders'); None for other files.
+    sopc.yaml is ('settings', 'settings'), though it also holds the groups."""
     if path == CONFIG:
         return ("settings", "settings")
     p = PurePosixPath(path)
     if len(p.parts) != 2:
         return None
+    if p.parts[0] in LEGACY_FOLDERS and p.suffix == ".md":
+        return (LEGACY_FOLDERS[p.parts[0]], p.stem)
     for kind, folder in FOLDERS.items():
-        if p.parts[0] == folder and p.suffix in ((".md", ".yaml") if kind == "procedure" else (".md",) if kind == "base" else (".yaml",)):
+        if p.parts[0] == folder and p.suffix in ((".md", ".yaml") if kind == "procedure" else (".md",) if kind == "instruction" else (".yaml",)):
             return (kind, p.stem)
     return None
 
 
 def paths_of(kind: str, id: str) -> list[str]:
     """Every path an item can live at; the first is where a new one is written."""
-    if kind == "settings":
+    if kind in ("settings", "group"):
         return [CONFIG]
     if kind == "procedure":
         return [f"procedures/{id}.md", f"procedures/{id}.yaml"]
-    return [f"{FOLDERS[kind]}/{id}.{'md' if kind == 'base' else 'yaml'}"]
+    return [f"{FOLDERS[kind]}/{id}.{'md' if kind == 'instruction' else 'yaml'}"]
 
 
 def _step(raw: Any) -> dict:
@@ -64,60 +70,25 @@ def _step(raw: Any) -> dict:
     return {"text": raw.get("text", ""), "tool": raw.get("tool") or None, "required": bool(raw.get("required"))}
 
 
-def _targets(raw: Any) -> str | list[str]:
-    return "*" if raw == "*" else list(raw or [])
-
-
 def from_export(exported: dict) -> dict:
-    """`sopc export` output as items: {settings, agents, bases, procedures}, each list sorted by id."""
-    refs = {f"{a['platform']}:{a['platform_id']}": a["id"] for a in exported["agents"]}
-
-    def ids(names: list[str]) -> list[str]:
-        """Targeting may name an agent by platform ref; the forms use agent ids."""
-        out = []
-        for n in names:
-            n = refs.get(n, n)
-            if n not in out:
-                out.append(n)
-        return out
-
-    def targets(raw: Any) -> str | list[str]:
-        t = _targets(raw)
-        return t if t == "*" else ids(t)
-
+    """`sopc export` output as items: {settings, agents, instructions, procedures, groups}.
+    Agents, instructions and procedures are sorted by id; groups keep their order in sopc.yaml."""
     cfg = exported["config"]
     return {
-        "settings": {
-            "variables": dict(cfg["variables"]),
-            "procedures_heading": cfg["sops_heading"],
-            "procedure_order": list(cfg["sop_order"]),
-        },
+        "settings": {"variables": dict(cfg["variables"]), "procedures_heading": cfg["sops_heading"]},
         "agents": [
             {
                 "id": a["id"],
                 "platform": a["platform"],
                 "platform_id": a["platform_id"],
-                "inherits": list(a["inherits"]),
+                "context": a["context"],
+                "blocks": list(a["blocks"]),
                 "variables": dict(a["variables"]),
-                "instructions": a["instructions"],
-                "exclude": list(a["exclude"]),
                 "file": a["file"],
             }
             for a in exported["agents"]
         ],
-        "bases": [
-            {
-                "id": b["id"],
-                "text": b["text"],
-                "agents": targets(b["agents"]),
-                "exclude": ids(b["exclude"]),
-                "inherits": list(b["inherits"]),
-                "position": b["position"],
-                "locked": b["locked"],
-                "file": b["file"],
-            }
-            for b in exported["bases"]
-        ],
+        "instructions": [{"id": b["id"], "text": b["text"], "locked": b["locked"], "file": b["file"]} for b in exported["instructions"]],
         "procedures": [
             {
                 "id": s["id"],
@@ -128,8 +99,6 @@ def from_export(exported: dict) -> dict:
                 "steps": [_step(x) for x in s["procedureSteps"]],
                 "never": [_step(x) for x in s["forbiddenActions"]],
                 "warning_signs": [_step(x) for x in s["warningSigns"]],
-                "agents": targets(s["agents"]),
-                "exclude": ids(s["exclude"]),
                 "delivery": s["delivery"],
                 "locked": s["locked"],
                 "format": "markdown" if s["file"].endswith(".md") else "yaml",
@@ -137,30 +106,88 @@ def from_export(exported: dict) -> dict:
             }
             for s in exported["sops"]
         ],
+        "groups": [{"id": name, "blocks": list(blocks), "file": CONFIG} for name, blocks in cfg["groups"].items()],
     }
+
+
+def config_of(items: dict) -> Item:
+    """What sopc.yaml holds: the settings and every group, in order."""
+    return {**items["settings"], "groups": {g["id"]: list(g["blocks"]) for g in items["groups"]}}
 
 
 def find(items: dict, kind: str, id: str) -> Item | None:
     if kind == "settings":
         return items["settings"]
-    return next((x for x in items[FOLDERS[kind]] if x["id"] == id), None)
+    if kind == "config":
+        return config_of(items)
+    return next((x for x in items[PLURALS[kind]] if x["id"] == id), None)
 
-# The fields each kind is compared on (what a form edits).
+
+def block_kind(items: dict, id: str) -> str | None:
+    """'instruction', 'procedure' or 'group' for a block id, or None."""
+    for kind in BLOCK_KINDS:
+        if any(x["id"] == id for x in items[PLURALS[kind]]):
+            return kind
+    return None
+
+
+def expand(items: dict, blocks: list[str], via: str | None = None, seen: frozenset = frozenset()) -> list[tuple[str, str | None]]:
+    """An agent's blocks with groups expanded in place: [(block id, the group it came through or None)].
+    `via` is the group the agent itself lists, however deeply the block is nested."""
+    groups = {g["id"]: g["blocks"] for g in items["groups"]}
+    out: list[tuple[str, str | None]] = []
+    for b in blocks:
+        if b in groups:
+            if b not in seen:
+                out += expand(items, groups[b], via or b, seen | {b})
+        else:
+            out.append((b, via))
+    return out
+
+
+def used_by(items: dict) -> dict[str, list[dict]]:
+    """{block or group id: [{agent, via}]}: which agents use it, and the group they list it through (None if directly)."""
+    out: dict[str, list[dict]] = {}
+    groups = {g["id"]: g["blocks"] for g in items["groups"]}
+
+    def groups_in(names: list[str], seen: frozenset) -> list[str]:
+        found = []
+        for n in names:
+            if n in groups and n not in seen:
+                found += [n] + groups_in(groups[n], seen | {n})
+        return found
+
+    for agent in items["agents"]:
+        rows: list[tuple[str, str | None]] = expand(items, agent["blocks"])
+        for top in agent["blocks"]:
+            if top in groups:
+                rows.append((top, None))
+                rows += [(g, top) for g in groups_in(groups[top], frozenset({top}))]
+        for block, via in rows:
+            entry = {"agent": agent["id"], "via": via}
+            if entry not in out.setdefault(block, []):
+                out[block].append(entry)
+    return out
+
+
+# The fields each kind is compared on (what a form edits). "config" is all of sopc.yaml.
 FIELDS = {
-    "agent": ("platform", "platform_id", "inherits", "variables", "instructions", "exclude"),
-    "base": ("text", "agents", "exclude", "inherits", "position", "locked"),
-    "procedure": ("name", "goal", "when", "guidance", "steps", "never", "warning_signs", "agents", "exclude", "delivery", "locked"),
-    "settings": ("variables", "procedures_heading", "procedure_order"),
+    "agent": ("platform", "platform_id", "context", "blocks", "variables"),
+    "instruction": ("text", "locked"),
+    "procedure": ("name", "goal", "when", "guidance", "steps", "never", "warning_signs", "delivery", "locked"),
+    "group": ("blocks",),
+    "settings": ("variables", "procedures_heading"),
+    "config": ("variables", "procedures_heading", "groups"),
 }
 
 
 def same(kind: str, a: Item, b: Item) -> bool:
-    """Whether two items have the same values (variable order counts too)."""
+    """Whether two items have the same values (variable and group order count too)."""
     def norm(item: Item) -> list:
         out = []
         for f in FIELDS[kind]:
             v = item.get(f)
-            if f in ("variables",):
+            if f in ("variables", "groups"):
                 v = list((v or {}).items())
             elif f in ("steps", "never", "warning_signs"):
                 v = [(s["text"], s.get("tool") or None, bool(s.get("required"))) for s in v or []]
@@ -188,11 +215,15 @@ def check(kind: str, id: str, item: Item) -> list[Issue]:
             bad("platform", "Choose a platform.")
         if not item["platform_id"].strip():
             bad("platform_id", "Enter the agent's id on its platform.")
+    if kind in ("agent", "group"):
+        for i, b in enumerate(item["blocks"]):
+            if not ID_RE.match(b):
+                bad("blocks", f"'{b}' isn't the name of a shared instruction, procedure or group.", i)
     if kind in ("agent", "settings"):
         for name in item["variables"]:
             if not VAR_RE.match(name):
                 bad("variables", f"'{name}' isn't a valid variable name; use letters, digits, '_', '-' and '.'.")
-    if kind == "base" and not item["text"].strip():
+    if kind == "instruction" and not item["text"].strip():
         bad("text", "Write the instructions.")
     if kind == "procedure":
         if not item["name"].strip():
@@ -274,56 +305,45 @@ class Yaml:
             return []
         return [f"{key}:"] + [self.kv(f"  {self.scalar(k)}:", v, 2) for k, v in values.items()]
 
-    def targeting(self, item: Item) -> list[str]:
-        out = []
-        if item["agents"] == "*":
-            out.append('agents: "*"')
-        elif item["agents"]:
-            out.append(f"agents: {self.flow(item['agents'])}")
-        if item["exclude"]:
-            out.append(f"exclude: {self.flow(item['exclude'])}")
-        return out
+    def ids(self, key: str, values: list[str], indent: int = 0) -> list[str]:
+        """A list of ids, one per line (how sopc's docs write `blocks` and groups)."""
+        pad = " " * indent
+        if not values:
+            return [f"{pad}{key}: []"]
+        return [f"{pad}{key}:"] + [f"{pad}  - {self.scalar(v)}" for v in values]
 
 
 def agent_yaml(item: Item, y: Yaml) -> str:
     lines = [f"{item['platform']}: {y.scalar(item['platform_id'])}"]
-    if item["inherits"]:
-        lines.append(f"inherits: {y.flow(item['inherits'])}")
-    if item["exclude"]:
-        lines.append(f"exclude: {y.flow(item['exclude'])}")
+    if item["context"]:
+        lines.append(y.kv("context:", item["context"]))
+    if item["blocks"]:
+        lines += y.ids("blocks", item["blocks"])
     lines += y.mapping("variables", item["variables"])
-    if item["instructions"]:
-        lines.append(y.kv("instructions:", item["instructions"]))
     return "\n".join(lines) + "\n"
 
 
-def settings_yaml(item: Item, y: Yaml) -> str:
+def config_yaml(item: Item, y: Yaml) -> str:
     lines = ["version: 1"]
     lines += y.mapping("variables", item["variables"])
+    if item["groups"]:
+        lines.append("groups:")
+        for name, blocks in item["groups"].items():
+            lines += y.ids(y.scalar(name), blocks, 2)
     if item["procedures_heading"] != DEFAULT_HEADING:
         lines.append(y.kv("sops_heading:", item["procedures_heading"]))
-    if item["procedure_order"]:
-        lines.append(f"sop_order: {y.flow(item['procedure_order'])}")
     return "\n".join(lines) + "\n"
 
 
-def base_md(item: Item, y: Yaml) -> str:
-    front = []
-    if item["inherits"]:
-        front.append(f"inherits: {y.flow(item['inherits'])}")
-    front += y.targeting(item)
-    if item["locked"]:
-        front.append("locked: true")
-    if item["position"] != "top":
-        front.append(f"position: {item['position']}")
+def instruction_md(item: Item, y: Yaml) -> str:
     text = item["text"].strip()
-    if front or text.startswith("---"):
-        return "---\n" + "".join(f"{line}\n" for line in front) + "---\n" + text + "\n"
+    if item["locked"] or text.startswith("---"):
+        return "---\n" + ("locked: true\n" if item["locked"] else "") + "---\n" + text + "\n"
     return text + "\n"
 
 
 def _settings(item: Item, y: Yaml) -> list[str]:
-    out = y.targeting(item)
+    out = []
     if item["locked"]:
         out.append("locked: true")
     if item["delivery"] != "prompt":
@@ -395,8 +415,8 @@ def md_normalized(item: Item) -> Item:
 
 
 def normalized(kind: str, item: Item) -> Item:
-    """Values as sopc keeps them whatever the file format: base text and names are trimmed."""
-    if kind == "base":
+    """Values as sopc keeps them whatever the file format: instruction text is trimmed."""
+    if kind == "instruction":
         return {**item, "text": item["text"].strip()}
     return item
 
@@ -408,23 +428,26 @@ Export = Callable[[Files], dict]  # files -> `sopc export` output; raises Invali
 
 
 def write(kind: str, id: str, item: Item, current_path: str | None, export: Export) -> tuple[str, str, Item]:
-    """(path, text, the item as sopc reads it back). Markdown procedures stay Markdown unless that would
-    change a value, then they're written as YAML. Raises Invalid if sopc can't read the values."""
+    """(path, text, the item as sopc reads it back). `kind` is agent, instruction, procedure or config
+    (sopc.yaml: settings plus groups). Markdown procedures stay Markdown unless that would change a value,
+    then they're written as YAML. Raises Invalid if sopc can't read the values."""
     item = normalized(kind, item)
     if kind == "procedure":
         candidates: list[tuple[str, Callable[[Item, Yaml], str], Item]] = []
         if current_path is None or current_path.endswith(".md"):
             candidates.append((f"procedures/{id}.md", procedure_md, md_normalized(item)))
         candidates.append((f"procedures/{id}.yaml", procedure_yaml, item))
+    elif kind == "config":
+        candidates = [(CONFIG, config_yaml, item)]
     else:
-        writer = {"agent": agent_yaml, "base": base_md, "settings": settings_yaml}[kind]
+        writer = {"agent": agent_yaml, "instruction": instruction_md}[kind]
         candidates = [(current_path or paths_of(kind, id)[0], writer, item)]
 
     last: Invalid | None = None
     for path, writer, want in candidates:
         for y in (Yaml(), Yaml(quoted=True)):
             text = writer(want, y)
-            files = {path: text} if kind == "settings" else {CONFIG: "", path: text}
+            files = {path: text} if kind == "config" else {CONFIG: "", path: text}
             try:
                 back = find(from_export(export(files)), kind, id)
             except Invalid as e:
@@ -447,24 +470,38 @@ _FIELD_NAMES = {
     "forbiddenActions": "never",
     "warningSigns": "warning_signs",
     "sops_heading": "procedures_heading",
-    "sop_order": "procedure_order",
     **{p: "platform_id" for p in PLATFORMS},
 }
 _LOC = re.compile(r"^([A-Za-z_]+)(?:[.\[](\d+)\]?)?(?:\.[A-Za-z_]+)?:\s*(.*)$")
 _LINE = re.compile(r"^line \d+:\s*")
 _QUOTED = re.compile(r"'([^']*)'")
+_GROUP = re.compile(r"^group '([^']*)'")
+_VIA = re.compile(r"in group `([^`]*)`")
 _STEP_REF = re.compile(r"^(procedureSteps|forbiddenActions|warningSigns)\[(\d+)\]")
 
+OLD_FORMAT_TEXT = (
+    "This folder is in the format of sopc v0.0.8 or earlier. Run `sopc migrate --yes` on it "
+    "(or send it to POST /v1/migrate), then publish again."
+)
 
-def locate(issue: Issue) -> Issue:
-    """The issue with the item (kind, id), field, list index and a plain-language `text` filled in."""
+
+def locate(issue: Issue, names: dict[str, str] | None = None) -> Issue:
+    """The issue with the item (kind, id), field, list index and a plain-language `text` filled in.
+    `names` maps block ids to what people call them (a procedure's name), for messages about blocks."""
     if issue.text is not None:
         return issue
+    names = names or {}
+    named = lambda b: names.get(b, b)  # noqa: E731
     where = item_of_path(issue.path) if issue.path else None
     kind, id = where if where else (None, None)
     msg = _LINE.sub("", issue.message)
-    names = _QUOTED.findall(msg)
-    first = names[0] if names else ""
+    quoted = _QUOTED.findall(msg)
+    first = quoted[0] if quoted else ""
+    group = _GROUP.match(msg)
+    if group and kind == "settings":
+        kind, id = "group", group.group(1)
+        quoted = quoted[1:]
+        first = quoted[0] if quoted else ""
     field: str | None = None
     index: int | None = None
     text = msg
@@ -485,27 +522,27 @@ def locate(issue: Issue) -> Issue:
         else:
             field = "steps"
         text = "This line is empty." if code == "empty_step" else msg
-    elif code == "unknown_base":
-        field, text = "inherits", f"Uses shared instructions '{first}', which don't exist."
-    elif code == "unknown_agent":
-        field = "exclude" if msg.startswith("exclude") else "agents"
-        text = f"Lists the agent '{first}', which doesn't exist."
     elif code == "unknown_block":
-        field, text = "exclude", f"Skips '{first}', which isn't a shared instruction or procedure."
+        field, text = "blocks", f"Lists '{first}', which isn't a shared instruction, procedure or group."
+    elif code == "duplicate_block":
+        via = _VIA.findall(msg)
+        how = f" (through the group {via[0]} and directly)" if len(via) == 1 and "directly" in msg else f" (through the groups {' and '.join(via)})" if len(via) > 1 else ""
+        field, text = "blocks", f"Includes {named(first)} twice{how}. List each block once."
     elif code == "locked":
-        field, text = "exclude", f"Can't skip '{first}': it is locked, so every agent it applies to gets it."
-    elif code == "useless_exclude":
-        field, text = "exclude", f"Skips '{first}', which doesn't apply to this agent anyway."
+        field = "blocks"
+        text = f"Every agent must include {named(first)}; {id} doesn't."
+    elif code == "group_cycle":
+        chain = msg.split(":", 1)[-1].strip()
+        kind, id, field = "group", chain.split(" ")[0] if chain else id, "blocks"
+        text = f"These groups include each other in a loop: {chain}."
+    elif code == "unused_block":
+        text = "No agent uses it yet. Add it to an agent's blocks or to a group."
     elif code == "unset_variable":
         name = re.search(r"\{\{([^}]*)\}\}", msg)
         var = name.group(1) if name else first
         field, text = "variables", f"Uses {{{{{var}}}}}, but it has no value here and no default in Settings."
-    elif code == "unknown_sop":
-        field, text = "procedure_order", f"Lists the procedure '{first}', which doesn't exist."
     elif code == "duplicate_platform_ref":
         field, text = "platform_id", "Another agent already uses this platform id."
-    elif code == "inheritance_cycle":
-        field, text = "inherits", f"These shared instructions include each other in a loop: {msg}."
     elif code == "missing_goal":
         field, text = "goal", "No goal yet. Without one, nobody can judge whether the procedure worked."
     elif code == "missing_steps":
@@ -513,17 +550,22 @@ def locate(issue: Issue) -> Issue:
     elif code == "id_mismatch":
         field = "id"
     elif code == "duplicate_id":
-        kind, id, field = None, first, "id"
-        text = f"'{first}' is the name of both a shared instruction and a procedure; names must be unique."
+        if kind == "group":
+            field, text = "id", f"'{id}' is already the name of a shared instruction or procedure; pick another name."
+        else:
+            kind, id, field = None, first, "id"
+            text = f"'{first}' is the name of both a shared instruction and a procedure; names must be unique."
     elif code == "duplicate_file":
         kind, field = "procedure", "id"
         text = f"There are two files for the procedure '{id}'."
     elif code == "missing_config":
         kind, id, text = "settings", "settings", "The workspace has no settings yet."
+    elif code == "old_format":
+        kind, id, text = None, None, OLD_FORMAT_TEXT
     if text:
         text = text[0].upper() + text[1:]
     return Issue(issue.code, issue.message, issue.path, issue.severity, kind=kind, id=id, field=field, index=index, text=text)
 
 
-def located(e: Invalid) -> Invalid:
-    return Invalid([locate(i) for i in e.issues])
+def located(e: Invalid, names: dict[str, str] | None = None) -> Invalid:
+    return Invalid([locate(i, names) for i in e.issues])

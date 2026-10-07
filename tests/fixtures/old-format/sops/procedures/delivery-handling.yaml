@@ -1,4 +1,5 @@
 name: Delivery
+agents: "*"
 description: Delivery orders have a confirmed address inside the delivery zone.
 scope: The customer asks for delivery.
 procedureSteps:

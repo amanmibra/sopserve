@@ -1,4 +1,5 @@
 name: Allergen check
+agents: "*"
 description: Customer leaves knowing whether their order is safe for their allergy.
 scope: Any order where the customer mentions a food allergy or dietary restriction.
 guidance: |

@@ -29,7 +29,7 @@ STATIC = Path(__file__).parent / "static"
 
 
 class FilesRequest(BaseModel):
-    files: Files = Field(description="Source files keyed by path relative to the sopc folder, e.g. 'bases/brand-voice.md'. Paths under build/ are ignored.")
+    files: Files = Field(description="Source files keyed by path relative to the sopc folder, e.g. 'instructions/brand-voice.md'. Paths under build/ are ignored.")
 
 
 class IssueOut(BaseModel):
@@ -37,10 +37,10 @@ class IssueOut(BaseModel):
     message: str = Field(description="sopc's message.")
     path: str = Field(description="Relative to the sopc folder; empty for folder-wide issues.")
     severity: Literal["error", "warning"]
-    kind: Literal["agent", "base", "procedure", "settings"] | None = Field(None, description="The item the issue is about, if known.")
+    kind: Literal["agent", "instruction", "procedure", "group", "settings"] | None = Field(None, description="The item the issue is about, if known.")
     id: str | None = None
-    field: str | None = Field(None, description="The item's field, as the /config endpoints name it (e.g. `steps`, `inherits`).")
-    index: int | None = Field(None, description="For list fields (steps, never, warning_signs): which entry.")
+    field: str | None = Field(None, description="The item's field, as the /config endpoints name it (e.g. `steps`, `blocks`).")
+    index: int | None = Field(None, description="For list fields (steps, never, warning_signs, blocks): which entry.")
     text: str | None = Field(None, description="The issue in plain words, for showing next to the field.")
 
 
@@ -122,7 +122,7 @@ class WriteResponse(BaseModel):
 
 
 class Component(BaseModel):
-    kind: Literal["agent", "base", "sop", "config"]
+    kind: Literal["agent", "instruction", "sop", "config", "base"] = Field(description="`base` only in releases made before sopc v0.0.9.")
     id: str
     path: str | None
     version: int | None
@@ -152,7 +152,7 @@ class DraftResponse(BaseModel):
     valid: bool
     issues: list[IssueOut]
     files: list[FileChange] = Field(description="Files changed since the current release.")
-    items: list[DraftItem] = Field(description="The same changes as agents, shared instructions, procedures and settings.")
+    items: list[DraftItem] = Field(description="The same changes as agents, shared instructions, procedures, groups and settings.")
     agents: list[DraftAgent]
 
 
@@ -229,9 +229,6 @@ class FetchOut(BaseModel):
 
 # --- items (the /config endpoints) ----------------------------------------------------
 
-Targets = Literal["*"] | list[str]
-
-
 class Step(BaseModel):
     text: str
     tool: str | None = Field(None, description="Exact name of a tool the agent has.")
@@ -253,19 +250,14 @@ class ItemMeta(BaseModel):
 class AgentFields(BaseModel):
     platform: Literal["livekit", "vapi", "elevenlabs", "retell"]
     platform_id: str = Field(description="The agent's id on its platform, e.g. LiveKit agent_name.")
-    inherits: list[str] = Field([], description="Shared instructions (base ids) it uses, in order.")
+    context: str = Field("", description="Text only this agent gets. It goes first in the prompt.")
+    blocks: list[str] = Field([], description="Shared instructions, procedures and groups, in prompt order.")
     variables: dict[str, str] = Field({}, description="Values for {{placeholders}}; override the defaults in settings.")
-    instructions: str = Field("", description="Text only this agent gets.")
-    exclude: list[str] = Field([], description="Shared instructions or procedures that target it but shouldn't apply.")
 
 
-class BaseFields(BaseModel):
+class InstructionFields(BaseModel):
     text: str
-    agents: Targets = Field([], description='"*" for every agent, or agent ids. [] means only agents that list it in inherits.')
-    exclude: list[str] = Field([], description="Agents left out even if `agents` matches them.")
-    inherits: list[str] = Field([], description="Shared instructions placed before this one wherever it's used.")
-    position: Literal["top", "bottom"] = "top"
-    locked: bool = Field(False, description="No agent can skip it.")
+    locked: bool = Field(False, description="Every agent must include it (directly or through a group).")
 
 
 class ProcedureFields(BaseModel):
@@ -276,27 +268,32 @@ class ProcedureFields(BaseModel):
     steps: list[Step] = Field(description="In order; at least one.")
     never: list[Step] = []
     warning_signs: list[Step] = []
-    agents: Targets = Field([], description='"*" for every agent, or agent ids.')
-    exclude: list[str] = []
     delivery: Literal["prompt", "auto", "tool"] = "prompt"
-    locked: bool = False
+    locked: bool = Field(False, description="Every agent must include it (directly or through a group).")
+
+
+class GroupFields(BaseModel):
+    blocks: list[str] = Field(description="Shared instructions, procedures and other groups, in order.")
 
 
 class SettingsFields(BaseModel):
     variables: dict[str, str] = Field({}, description="Default values for {{placeholders}}, for every agent.")
-    procedures_heading: str = Field(forms.DEFAULT_HEADING, description="Heading above the procedures in each prompt.")
-    procedure_order: list[str] = Field([], description="Procedures placed first; the rest follow alphabetically.")
+    procedures_heading: str = Field(forms.DEFAULT_HEADING, description="Heading before the first procedure in each prompt; empty for none.")
 
 
 class AgentIn(AgentFields, Saved):
     pass
 
 
-class BaseIn(BaseFields, Saved):
+class InstructionIn(InstructionFields, Saved):
     pass
 
 
 class ProcedureIn(ProcedureFields, Saved):
+    pass
+
+
+class GroupIn(GroupFields, Saved):
     pass
 
 
@@ -308,7 +305,7 @@ class NewAgent(AgentIn):
     id: str
 
 
-class NewBase(BaseIn):
+class NewInstruction(InstructionIn):
     id: str
 
 
@@ -316,17 +313,34 @@ class NewProcedure(ProcedureIn):
     id: str
 
 
+class NewGroup(GroupIn):
+    id: str
+
+
+class Use(BaseModel):
+    agent: str
+    via: str | None = Field(description="The group the agent lists it through; null if the agent lists it directly.")
+
+
+class UsedBy(BaseModel):
+    used_by: list[Use] = Field([], description="Which agents use it.")
+
+
 class AgentConfig(AgentFields, ItemMeta):
     id: str
 
 
-class BaseConfig(BaseFields, ItemMeta):
+class InstructionConfig(InstructionFields, UsedBy, ItemMeta):
     id: str
 
 
-class ProcedureConfig(ProcedureFields, ItemMeta):
+class ProcedureConfig(ProcedureFields, UsedBy, ItemMeta):
     id: str
     format: Literal["markdown", "yaml"] = Field(description="How the file is written. New procedures are Markdown.")
+
+
+class GroupConfig(GroupFields, UsedBy, ItemMeta):
+    id: str
 
 
 class SettingsConfig(SettingsFields, ItemMeta):
@@ -337,8 +351,51 @@ class ConfigResponse(BaseModel):
     workspace: str
     settings: SettingsConfig
     agents: list[AgentConfig]
-    bases: list[BaseConfig]
+    instructions: list[InstructionConfig]
     procedures: list[ProcedureConfig]
+    groups: list[GroupConfig] = Field(description="In the order sopc.yaml lists them.")
+
+
+class BlockRequest(Saved):
+    block: str = Field(description="A shared instruction, procedure or group id.")
+
+
+class AgentSaved(BaseModel):
+    item: AgentConfig
+    changed: list[WrittenFile]
+
+
+class PreviewBlock(BaseModel):
+    kind: Literal["agent", "instruction", "sop"]
+    id: str
+
+
+class PreviewResponse(BaseModel):
+    valid: bool
+    issues: list[IssueOut]
+    prompt: str | None = Field(description="The prompt the agent would get with these fields; null if it doesn't compile.")
+    hash: str | None
+    blocks: list[PreviewBlock] = Field(description="What the prompt is built from, in order, groups expanded.")
+    release: int | None
+    released_prompt: str | None = Field(description="The agent's prompt in the current release, to compare with.")
+
+
+class MigrateRequest(Saved):
+    apply: bool = Field(False, description="Write the converted files as a draft. Without it, only the plan is returned.")
+
+
+class MigrateResponse(BaseModel):
+    workspace: str
+    needed: bool = Field(description="False if head is already in the current format.")
+    plan: str = Field(description="sopc migrate's plan: what changes in each file, and any warnings.")
+    applied: bool
+    changed: list[WrittenFile]
+
+
+class MigrateFilesResponse(BaseModel):
+    migrated: bool = Field(description="False if the files were already in the current format.")
+    plan: str
+    files: Files = Field(description="The converted files (the input if nothing changed).")
 
 
 class ItemVersion(BaseModel):
@@ -351,7 +408,7 @@ class ItemVersion(BaseModel):
 
 
 class DraftItem(BaseModel):
-    kind: Literal["agent", "base", "procedure", "settings"]
+    kind: Literal["agent", "instruction", "procedure", "group", "settings"]
     id: str
     name: str
     change: Literal["added", "edited", "deleted"]
@@ -370,6 +427,7 @@ def create_app(store: Store) -> FastAPI:
         version=__version__,
         description="Versioned sopc workspaces: edit files, release them, and serve each agent its compiled prompt at call start.",
     )
+    app.state.store = store
     invalid = {422: {"model": ValidateResponse, "description": "The files don't compile; sopc's issues."}}
 
     @app.exception_handler(Invalid)
@@ -416,6 +474,11 @@ def create_app(store: Store) -> FastAPI:
             "warnings": [forms.locate(i).to_dict() for i in compiled.issues],
         }
 
+    @app.post("/v1/migrate", response_model=MigrateFilesResponse, responses=invalid, dependencies=v1, tags=["stateless"])
+    def migrate_files(req: FilesRequest) -> dict:
+        """Convert a folder in the sopc v0.0.8 format (bases/, agent targeting) with `sopc migrate`. Nothing stored."""
+        return store.sopc.migrate(without_build(req.files))
+
     @app.post("/v1/lint", response_model=LintResponse, responses=invalid, dependencies=v1, tags=["stateless"])
     def lint(req: FilesRequest) -> dict:
         """Duplicated and conflicting instructions in each agent's prompt. Advisory."""
@@ -456,13 +519,14 @@ def create_app(store: Store) -> FastAPI:
 
     @app.get("/v1/workspaces/{workspace}/config", response_model=ConfigResponse, dependencies=v1, tags=["config"])
     def get_config(workspace: str) -> dict:
-        """Head as structured items: settings, agents, shared instructions (bases) and procedures (SOPs)."""
+        """Head as structured items: settings, agents, shared instructions, procedures (SOPs) and groups.
+        422 with `old_format` issues if the workspace is in the sopc v0.0.8 format: see `…/migrate`."""
         return {"workspace": workspace, **store.items(workspace)}
 
     def item_routes(kind: str, plural: str, In: type[BaseModel], New: type[BaseModel], Out: type[BaseModel]) -> None:
         """GET/POST {plural}, GET/PUT/DELETE {plural}/{id}, and its history and old versions."""
         path = f"/v1/workspaces/{{workspace}}/config/{plural}"
-        what = {"agent": "agent", "base": "shared instruction (sopc base)", "procedure": "procedure (SOP)"}[kind]
+        what = {"agent": "agent", "instruction": "shared instruction", "procedure": "procedure (SOP)", "group": "group (in sopc.yaml)"}[kind]
         Result = create_model(f"{Out.__name__}Saved", item=(Out, ...), changed=(list[WrittenFile], ...))
 
         def save(workspace: str, id: str, req: BaseModel, create: bool) -> dict:
@@ -498,7 +562,7 @@ def create_app(store: Store) -> FastAPI:
             ("POST", "", create, Result, f"Create a {what}. Rejected if the result doesn't compile; 409 if it exists.", {**invalid, 409: {"description": "Already exists."}}),
             ("GET", "/{id}", get, Out, f"One {what} at head.", {}),
             ("PUT", "/{id}", put, Result, f"Create or replace a {what}. Rejected if the result doesn't compile. Nothing goes live until a release.", invalid),
-            ("DELETE", "/{id}", delete, WriteResponse, f"Delete a {what}, and remove it from every list that names it.", invalid),
+            ("DELETE", "/{id}", delete, WriteResponse, f"Delete a {what}. {DELETES[kind]}", invalid),
             ("GET", "/{id}/history", history, list[ItemVersion], f"Every version of a {what}, newest first.", {}),
             ("GET", "/{id}/versions/{version}", version, dict[str, Any], f"An older version of a {what}, as fields.", {}),
         ]
@@ -508,9 +572,40 @@ def create_app(store: Store) -> FastAPI:
                 dependencies=v1, tags=["config"], name=f"{fn.__name__}_{kind}", status_code=201 if method == "POST" else 200,
             )
 
+    DELETES = {
+        "agent": "Nothing else changes.",
+        "instruction": "It's taken out of every agent and group that lists it.",
+        "procedure": "It's taken out of every agent and group that lists it.",
+        "group": "Wherever it's listed, its blocks are listed in its place, so no prompt changes.",
+    }
     item_routes("agent", "agents", AgentIn, NewAgent, AgentConfig)
-    item_routes("base", "bases", BaseIn, NewBase, BaseConfig)
+    item_routes("instruction", "instructions", InstructionIn, NewInstruction, InstructionConfig)
     item_routes("procedure", "procedures", ProcedureIn, NewProcedure, ProcedureConfig)
+    item_routes("group", "groups", GroupIn, NewGroup, GroupConfig)
+
+    @app.post("/v1/workspaces/{workspace}/config/agents/{id}/blocks", response_model=AgentSaved, responses={**invalid, 409: {"description": "The agent already uses it."}}, dependencies=v1, tags=["config"])
+    def add_block(workspace: str, id: str, req: BlockRequest) -> dict:
+        """Add a shared instruction, procedure or group at the end of the agent's blocks. 409 if the agent already uses it."""
+        item, changed = store.add_block(workspace, id, req.block, req.author, req.note)
+        return {"item": item, "changed": changed}
+
+    @app.delete("/v1/workspaces/{workspace}/config/agents/{id}/blocks/{block}", response_model=AgentSaved, responses={**invalid, 409: {"description": "The agent gets it through a group."}}, dependencies=v1, tags=["config"])
+    def remove_block(workspace: str, id: str, block: str, author: str | None = None, note: str | None = None) -> dict:
+        """Take a block out of the agent's blocks. 409 if the agent gets it through a group; 422 if it's locked."""
+        item, changed = store.remove_block(workspace, id, block, author, note)
+        return {"item": item, "changed": changed}
+
+    @app.post("/v1/workspaces/{workspace}/config/agents/{id}/preview", response_model=PreviewResponse, dependencies=v1, tags=["config"])
+    def preview_agent(workspace: str, id: str, req: AgentFields) -> dict:
+        """The prompt this agent would get with these fields, compiled with the rest of head. Saves nothing."""
+        return store.preview_agent(workspace, id, req.model_dump())
+
+    @app.post("/v1/workspaces/{workspace}/migrate", response_model=MigrateResponse, responses=invalid, dependencies=v1, tags=["config"])
+    def migrate(workspace: str, req: MigrateRequest | None = None) -> dict:
+        """Convert a workspace stored in the sopc v0.0.8 format with `sopc migrate`. Returns the plan;
+        with `apply`, writes the converted files as a draft (publish to release them)."""
+        req = req or MigrateRequest()
+        return store.migrate(workspace, req.apply, req.author, req.note)
 
     @app.get("/v1/workspaces/{workspace}/config/settings", response_model=SettingsConfig, dependencies=v1, tags=["config"])
     def get_settings(workspace: str) -> dict:

@@ -1,4 +1,7 @@
 version: 1
 variables:
   staff_transfer: the manager on duty
-sop_order: [allergen-check]
+groups:
+  delivery-orders:
+    - delivery-handling
+    - large-orders

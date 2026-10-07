@@ -3,47 +3,47 @@
   "agents": {
     "luigis-trattoria": {
       "platform_ref": "livekit:luigis-trattoria",
-      "hash": "e45cbc115b84316cf5ed7529e8d66239a685dd2defe7d191e10c4583c14266de",
+      "hash": "af6b6deb9ff08e7ccca655c6835fa6ab362e80ce8bdb4a7cb21c62863fc685da",
       "blocks": [
         {
           "kind": "agent",
           "id": "luigis-trattoria",
-          "hash": "8f7e72f544563f8512c56a78c6a6bf03018e3eb021fc4058e48360ad1bf0bfd8"
+          "hash": "828d75b208b322311fe5958fa64999b79583528984fd25920f656319c8c1c470"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "restaurant-host",
-          "hash": "cfa0fc804ad2f51283d7f56b298cbd08b1d8d5a21cdeb345b447effaa5de674b"
+          "hash": "c2c6a7dc3267f9b932bb8d83d0ef22ed5248a5c7a21d9e6d894f9235a8ff48e3"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "brand-voice",
-          "hash": "b4f23bc3a75f4be2f6d4e8de73767b593856b12a3cd7532dff21217bf848e978"
-        },
-        {
-          "kind": "base",
-          "id": "closing",
-          "hash": "fa029caddb594caba1cdd83e4f93ee2b4bcc3d931fb43fe5950696041ee8ab9c"
+          "hash": "92a2623a3e72dd6221450099de4c5f3c8c4c7fb091370061cb87bd26725804f9"
         },
         {
           "kind": "sop",
           "id": "allergen-check",
-          "hash": "64a6f2aa8ddce555b89ab21d644078215df9dba330f6e27077e22fc3a4e2afd3"
+          "hash": "98bb79d314f8e94cc211cebad6e3c350417fa33afaf04180c90057f764f1bc1d"
         },
         {
           "kind": "sop",
           "id": "delivery-handling",
-          "hash": "010a06b32f7c6dffc6c2817b2470182e59783cfa32a44243069e42ba50ed7f8a"
+          "hash": "b3caa05da1cb0ac605085a682ded0d8c2812e3826fd6594487e2ab064cd73e9b"
         },
         {
           "kind": "sop",
           "id": "large-orders",
-          "hash": "633ae6586c5ea078ca999c59a602031cbea0b5004c51e5de13b9e7c6f8ec90db"
+          "hash": "10c8b8868857dbf3c95b2941554a68485872f40072c1b8e5557fb66fadda003d"
         },
         {
           "kind": "sop",
           "id": "reservations",
-          "hash": "2a1af91bbc55f7ada26be49502f413595dc5dcfd9c503ddc7f2bb512a24139be"
+          "hash": "0b5613d34800c0bbc5769ed8bd289585a84ee5875c3f931858fe88863a485d22"
+        },
+        {
+          "kind": "instruction",
+          "id": "closing",
+          "hash": "9a7981f2d010f6448d78e2119fc233cb1a02412bc37ba3fb98204c8d24d9a007"
         }
       ],
       "tools": [
@@ -57,37 +57,37 @@
     },
     "sakura-sushi": {
       "platform_ref": "livekit:sakura-sushi",
-      "hash": "54fd93445bb647d90b9671fe5c6b7b99ffb4b61f3efbef6f116b29aec69849b7",
+      "hash": "9f6da24761e330c9b1298506d817bd60d4f5eec045a7aff8143c7f475537295f",
       "blocks": [
         {
           "kind": "agent",
           "id": "sakura-sushi",
-          "hash": "30d0d528e7fb2a14c11efc19379169fb7fc8b66073605751ff9c6e500751bff8"
+          "hash": "7a32edcbb8cb7b2e688ab18a0b9ed2a4541ba89081393253989efb6f8c868ac2"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "restaurant-host",
-          "hash": "cfa0fc804ad2f51283d7f56b298cbd08b1d8d5a21cdeb345b447effaa5de674b"
+          "hash": "c2c6a7dc3267f9b932bb8d83d0ef22ed5248a5c7a21d9e6d894f9235a8ff48e3"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "brand-voice",
-          "hash": "b4f23bc3a75f4be2f6d4e8de73767b593856b12a3cd7532dff21217bf848e978"
-        },
-        {
-          "kind": "base",
-          "id": "closing",
-          "hash": "fa029caddb594caba1cdd83e4f93ee2b4bcc3d931fb43fe5950696041ee8ab9c"
+          "hash": "92a2623a3e72dd6221450099de4c5f3c8c4c7fb091370061cb87bd26725804f9"
         },
         {
           "kind": "sop",
           "id": "allergen-check",
-          "hash": "64a6f2aa8ddce555b89ab21d644078215df9dba330f6e27077e22fc3a4e2afd3"
+          "hash": "98bb79d314f8e94cc211cebad6e3c350417fa33afaf04180c90057f764f1bc1d"
         },
         {
           "kind": "sop",
           "id": "reservations",
-          "hash": "2a1af91bbc55f7ada26be49502f413595dc5dcfd9c503ddc7f2bb512a24139be"
+          "hash": "0b5613d34800c0bbc5769ed8bd289585a84ee5875c3f931858fe88863a485d22"
+        },
+        {
+          "kind": "instruction",
+          "id": "closing",
+          "hash": "9a7981f2d010f6448d78e2119fc233cb1a02412bc37ba3fb98204c8d24d9a007"
         }
       ],
       "tools": [
@@ -99,47 +99,47 @@
     },
     "tonys-pizza": {
       "platform_ref": "livekit:tonys-pizza",
-      "hash": "8be7cbf956d8d6fb56041fd62b2da199ec7f91e9f163fd96a2a24a0f813a9782",
+      "hash": "41faad624faab99fd762704821d086607f5569e3872afc99a5b123c4778fe769",
       "blocks": [
         {
           "kind": "agent",
           "id": "tonys-pizza",
-          "hash": "8a8a51a0ebb52761c92b3a7ec048653d23bf8e8a27c55e49a92874a583f3e5cb"
+          "hash": "2565f6f3abaa12f3e4f26252d5ffc115c76ebe6892216ed995ec2a726e75decb"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "restaurant-host",
-          "hash": "cfa0fc804ad2f51283d7f56b298cbd08b1d8d5a21cdeb345b447effaa5de674b"
+          "hash": "c2c6a7dc3267f9b932bb8d83d0ef22ed5248a5c7a21d9e6d894f9235a8ff48e3"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "pizza-context",
-          "hash": "3de8aeb800eba44572c8ec7ccad9a8e5858f0f6643a33d0e47aaad4f64e54a20"
+          "hash": "f3edb2a40586cc3e27ef73d45f42b5e7674e5f9764f98a7e63cd3293bfcee233"
         },
         {
-          "kind": "base",
+          "kind": "instruction",
           "id": "brand-voice",
-          "hash": "b4f23bc3a75f4be2f6d4e8de73767b593856b12a3cd7532dff21217bf848e978"
-        },
-        {
-          "kind": "base",
-          "id": "closing",
-          "hash": "fa029caddb594caba1cdd83e4f93ee2b4bcc3d931fb43fe5950696041ee8ab9c"
+          "hash": "92a2623a3e72dd6221450099de4c5f3c8c4c7fb091370061cb87bd26725804f9"
         },
         {
           "kind": "sop",
           "id": "allergen-check",
-          "hash": "64a6f2aa8ddce555b89ab21d644078215df9dba330f6e27077e22fc3a4e2afd3"
+          "hash": "98bb79d314f8e94cc211cebad6e3c350417fa33afaf04180c90057f764f1bc1d"
         },
         {
           "kind": "sop",
           "id": "delivery-handling",
-          "hash": "010a06b32f7c6dffc6c2817b2470182e59783cfa32a44243069e42ba50ed7f8a"
+          "hash": "b3caa05da1cb0ac605085a682ded0d8c2812e3826fd6594487e2ab064cd73e9b"
         },
         {
           "kind": "sop",
           "id": "large-orders",
-          "hash": "633ae6586c5ea078ca999c59a602031cbea0b5004c51e5de13b9e7c6f8ec90db"
+          "hash": "10c8b8868857dbf3c95b2941554a68485872f40072c1b8e5557fb66fadda003d"
+        },
+        {
+          "kind": "instruction",
+          "id": "closing",
+          "hash": "9a7981f2d010f6448d78e2119fc233cb1a02412bc37ba3fb98204c8d24d9a007"
         }
       ],
       "tools": [

@@ -1,9 +1,14 @@
 livekit: sakura-sushi
-inherits: [restaurant-host]
-exclude: [delivery-handling]
+context: |
+  Sakura is an omakase and sushi counter in Manhattan. Reservations strongly recommended. No delivery.
+blocks:
+  - restaurant-host
+  - brand-voice
+  - allergen-check
+  - reservations
+  - closing
+
 variables:
   restaurant_name: Sakura Sushi
   menu_allergen_link: sakurasushi.nyc/allergens
   staff_transfer: the head chef
-instructions: |
-  Sakura is an omakase and sushi counter in Manhattan. Reservations strongly recommended. No delivery.

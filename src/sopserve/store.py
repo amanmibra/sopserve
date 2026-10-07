@@ -82,7 +82,7 @@ fetches = Table(
 )
 
 # Which folder each lock.json block kind lives in.
-_KIND_DIRS = {"agent": "agents", "base": "bases", "sop": "procedures"}
+_KIND_DIRS = {"agent": "agents", "instruction": "instructions", "sop": "procedures", "base": "bases"}  # base: sopc v0.0.8
 CONFIG = "sopc.yaml"
 
 
@@ -152,10 +152,11 @@ class Store:
         with self._locked(workspace) as conn:
             return self._write(conn, workspace, files, author, note, replace=True)
 
-    # --- items: agents, bases, procedures and settings as structured data ------------
+    # --- items: agents, instructions, procedures, groups and settings as structured data ----
 
     def items(self, workspace: str) -> dict:
-        """Head as {settings, agents, bases, procedures}, each with its version."""
+        """Head as {settings, agents, instructions, procedures, groups}, each with its version.
+        Instructions, procedures and groups also get `used_by`: [{agent, via}] (via: the group, if not listed directly)."""
         ws = _ws(workspace)
         with self.engine.connect() as conn:
             head = self._head_rows(conn, ws)
@@ -164,16 +165,23 @@ class Store:
     def _items(self, head: list[dict]) -> dict:
         files = {r["path"]: r["content"] for r in head}
         if forms.CONFIG in files:
-            items = forms.from_export(self.sopc.export(files))
+            try:
+                items = forms.from_export(self.sopc.export(files))
+            except Invalid as e:
+                raise forms.located(e) from None
         else:  # a new workspace: sopc.yaml is written with the first item
-            items = {"settings": {"variables": {}, "procedures_heading": forms.DEFAULT_HEADING, "procedure_order": []}, "agents": [], "bases": [], "procedures": []}
+            items = {"settings": {"variables": {}, "procedures_heading": forms.DEFAULT_HEADING}, "agents": [], "instructions": [], "procedures": [], "groups": []}
         rows = {r["path"]: r for r in head}
-        for item in [items["settings"], *items["agents"], *items["bases"], *items["procedures"]]:
+        for item in [items["settings"], *items["agents"], *items["instructions"], *items["procedures"], *items["groups"]]:
             row = rows.get(item.get("file", forms.CONFIG))
             item["version"] = row["version"] if row else None
             item["updated_at"] = _utc(row["created_at"]) if row else None
             item["updated_by"] = row["author"] if row else None
         items["settings"]["file"] = forms.CONFIG
+        uses = forms.used_by(items)
+        for key in ("instructions", "procedures", "groups"):
+            for item in items[key]:
+                item["used_by"] = uses.get(item["id"], [])
         return items
 
     def item(self, workspace: str, kind: str, id: str) -> dict:
@@ -194,24 +202,41 @@ class Store:
             current = forms.find(items, kind, id)
             if kind != "settings" and current is not None and create:
                 raise Conflict(f"{_KIND_NAMES[kind]} '{id}' already exists")
-            if kind == "procedure" and any(b["id"] == id for b in items["bases"]):
-                raise Invalid([_name_taken(kind, id, "a shared instruction")])
-            if kind == "base" and any(p["id"] == id for p in items["procedures"]):
-                raise Invalid([_name_taken(kind, id, "a procedure")])
+            return self._put(conn, ws, head, items, kind, id, data, author, note)
+
+    def _put(self, conn, ws: str, head: list[dict], items: dict, kind: str, id: str, data: dict, author, note) -> tuple[dict, list[dict]]:
+        current = forms.find(items, kind, id)
+        other = forms.block_kind(items, id) if kind in forms.BLOCK_KINDS else None
+        if other and other != kind:
+            raise Invalid([_name_taken(kind, id, other)])
+        paths = {r["path"] for r in head}
+        if kind in ("settings", "group"):
+            config = forms.config_of(items)
+            if kind == "settings":
+                want = {**config, "variables": data["variables"], "procedures_heading": data["procedures_heading"]}
+            else:
+                want = {**config, "groups": {**config["groups"], id: list(data["blocks"])}}
+            current_path = forms.CONFIG if forms.CONFIG in paths else None
+            path, text, saved = forms.write("config", "config", want, current_path, self.sopc.export)
+            if current_path and current is not None and forms.same("config", config, saved):
+                return current, []
+            changes: dict[str, str | None] = {path: text}
+        else:
             current_path = current["file"] if current and current.get("version") else None
             path, text, saved = forms.write(kind, id, data, current_path, self.sopc.export)
             if current_path and forms.same(kind, current, saved):
                 return current, []
-            changes: dict[str, str | None] = {path: text}
+            changes = {path: text}
             if current_path and current_path != path:
                 changes[current_path] = None
-            if forms.CONFIG not in {r["path"] for r in head} and path != forms.CONFIG:
+            if forms.CONFIG not in paths:
                 changes[forms.CONFIG] = "version: 1\n"
-            written = self._write(conn, ws, changes, author, note, replace=False)
-            return {**saved, "file": path}, written
+        written = self._write(conn, ws, changes, author, note, replace=False)
+        return forms.find(self._items(self._head_rows(conn, ws)), kind, id), written
 
     def delete_item(self, workspace: str, kind: str, id: str, author=None, note=None) -> list[dict]:
-        """Delete an item, and remove it from every list that names it (inherits, applies to, skips, order)."""
+        """Delete an item. A shared instruction or procedure is taken out of every agent and group that lists it;
+        a group is replaced by its blocks wherever it's listed, so no prompt changes."""
         ws = _ws(workspace)
         if kind == "settings":
             raise Conflict("settings can't be deleted")
@@ -221,46 +246,151 @@ class Store:
             target = forms.find(items, kind, id)
             if target is None:
                 raise NotFound(f"{_KIND_NAMES[kind]} '{id}' not found")
-            names = {id}
-            if kind == "agent":
-                names.add(f"{target['platform']}:{target['platform_id']}")
-            changes: dict[str, str | None] = {target["file"]: None}
+            changes: dict[str, str | None] = {}
+            config = forms.config_of(items)
+            groups = dict(config["groups"])
+            if kind == "group":
+                del groups[id]
+            if kind != "agent":
+                replace = target["blocks"] if kind == "group" else []
 
-            def drop(values: list[str]) -> list[str]:
-                return [v for v in values if v not in names]
+                def swap(blocks: list[str]) -> list[str]:
+                    out: list[str] = []
+                    for b in blocks:
+                        out += replace if b == id else [b]
+                    return out
 
-            edits: list[tuple[str, dict]] = []
-            for other_kind, key in (("agent", "agents"), ("base", "bases"), ("procedure", "procedures")):
-                for other in items[key]:
-                    if other_kind == kind and other["id"] == id:
-                        continue
-                    new = dict(other)
-                    if kind == "agent" and other_kind in ("base", "procedure"):
-                        if new["agents"] != "*":
-                            new["agents"] = drop(new["agents"])
-                        new["exclude"] = drop(new["exclude"])
-                    if kind == "base" and other_kind in ("agent", "base"):
-                        new["inherits"] = drop(new["inherits"])
-                    if kind in ("base", "procedure") and other_kind == "agent":
-                        new["exclude"] = drop(new["exclude"])
-                    if not forms.same(other_kind, other, new):
-                        edits.append((other_kind, new))
-            if kind == "procedure" and id in items["settings"]["procedure_order"]:
-                edits.append(("settings", {**items["settings"], "procedure_order": drop(items["settings"]["procedure_order"])}))
-            for other_kind, new in edits:
-                path, text, _ = forms.write(other_kind, new.get("id", "settings"), new, new["file"], self.sopc.export)
+                for agent in items["agents"]:
+                    if id in agent["blocks"]:
+                        path, text, _ = forms.write("agent", agent["id"], {**agent, "blocks": swap(agent["blocks"])}, agent["file"], self.sopc.export)
+                        changes[path] = text
+                groups = {g: swap(blocks) for g, blocks in groups.items()}
+            if kind != "group":
+                changes[target["file"]] = None
+            if groups != config["groups"]:
+                path, text, _ = forms.write("config", "config", {**config, "groups": groups}, forms.CONFIG, self.sopc.export)
                 changes[path] = text
-                if path != new["file"]:
-                    changes[new["file"]] = None
             return self._write(conn, ws, changes, author, note, replace=False)
 
-    def _parse(self, kind: str, id: str, path: str, content: str) -> dict:
-        """One item's fields from one file's content, read by sopc on its own."""
-        files = {path: content} if kind == "settings" else {forms.CONFIG: "", path: content}
-        return forms.find(forms.from_export(self.sopc.export(files)), kind, id)
+    def add_block(self, workspace: str, agent: str, block: str, author=None, note=None) -> tuple[dict, list[dict]]:
+        """Add a shared instruction, procedure or group to the end of an agent's blocks."""
+        ws = _ws(workspace)
+        with self._locked(ws) as conn:
+            head = self._head_rows(conn, ws)
+            items = self._items(head)
+            target = forms.find(items, "agent", agent)
+            if target is None:
+                raise NotFound(f"agent '{agent}' not found")
+            if forms.block_kind(items, block) is None:
+                raise NotFound(f"there's no shared instruction, procedure or group called '{block}'")
+            name = _block_names(items).get(block, block)
+            if block in target["blocks"]:
+                raise Conflict(f"{agent} already lists {name}")
+            via = [v for b, v in forms.expand(items, target["blocks"]) if b == block]
+            if via:
+                raise Conflict(f"{agent} already gets {name} through the group {via[0]}")
+            return self._put(conn, ws, head, items, "agent", agent, {**target, "blocks": [*target["blocks"], block]}, author, note)
+
+    def remove_block(self, workspace: str, agent: str, block: str, author=None, note=None) -> tuple[dict, list[dict]]:
+        """Take a block out of an agent's blocks. One the agent gets through a group can't be removed here."""
+        ws = _ws(workspace)
+        with self._locked(ws) as conn:
+            head = self._head_rows(conn, ws)
+            items = self._items(head)
+            target = forms.find(items, "agent", agent)
+            if target is None:
+                raise NotFound(f"agent '{agent}' not found")
+            name = _block_names(items).get(block, block)
+            if block not in target["blocks"]:
+                via = [v for b, v in forms.expand(items, target["blocks"]) if b == block]
+                if via:
+                    raise Conflict(f"{agent} gets {name} through the group {via[0]}; take it out of that group, or list the group's other blocks instead of the group")
+                raise NotFound(f"{agent} doesn't use {name}")
+            blocks = [b for b in target["blocks"] if b != block]
+            return self._put(conn, ws, head, items, "agent", agent, {**target, "blocks": blocks}, author, note)
+
+    def preview_agent(self, workspace: str, agent: str, data: dict) -> dict:
+        """Compile head with this agent's unsaved fields, without saving anything."""
+        ws = _ws(workspace)
+        with self.engine.connect() as conn:
+            head = self._head_rows(conn, ws)
+            current = self._current(conn, ws)
+        out = {"valid": False, "issues": [], "prompt": None, "hash": None, "blocks": [], "released_prompt": None, "release": current["number"] if current else None}
+        if current and agent in current["build"]["agents"]:
+            out["released_prompt"] = current["build"]["agents"][agent]["prompt"]
+        issues = forms.check("agent", agent, data)
+        if issues:
+            return {**out, "issues": [i.to_dict() for i in issues]}
+        files = {r["path"]: r["content"] for r in head}
+        items = self._items(head)
+        existing = forms.find(items, "agent", agent)
+        try:
+            path, text, _ = forms.write("agent", agent, data, existing["file"] if existing and existing.get("version") else None, self.sopc.export)
+        except Invalid as e:
+            return {**out, "issues": [i.to_dict() for i in forms.located(e).issues]}
+        files[path] = text
+        files.setdefault(forms.CONFIG, "version: 1\n")
+        compiled = self.sopc.compile(files)
+        names = _block_names(items)
+        out["issues"] = [forms.locate(i, names).to_dict() for i in compiled.issues]
+        built = compiled.agents.get(agent) if compiled.valid else None
+        if built:
+            out.update(valid=True, prompt=built["prompt"], hash=built["hash"], blocks=[{"kind": b["kind"], "id": b["id"]} for b in built["blocks"]])
+        return out
+
+    def migrate(self, workspace: str, apply: bool = False, author=None, note=None) -> dict:
+        """Convert head from the sopc v0.0.8 format with `sopc migrate`. Without `apply`, only the plan."""
+        ws = _ws(workspace)
+        with self._locked(ws) as conn:
+            files = {r["path"]: r["content"] for r in self._head_rows(conn, ws)}
+            result = self.sopc.migrate(files) if files else {"migrated": False, "plan": "", "files": {}}
+            if not result["migrated"]:
+                return {"workspace": ws, "needed": False, "plan": "", "applied": False, "changed": []}
+            changed = self._write(conn, ws, result["files"], author, note, replace=True) if apply else []
+            return {"workspace": ws, "needed": True, "plan": result["plan"], "applied": apply, "changed": changed}
+
+    def _parse(self, kind: str, id: str, path: str, content: str) -> dict | None:
+        """One item's fields from one file's content, read by sopc on its own. None if it's in the old format."""
+        if kind in ("settings", "group"):
+            items = self._parse_config(content)
+            return forms.find(items, kind, id) if items else None
+        try:
+            return forms.find(forms.from_export(self.sopc.export({forms.CONFIG: "", path: content})), kind, id)
+        except Invalid:
+            return None
+
+    def _parse_config(self, content: str) -> dict | None:
+        """sopc.yaml's settings and groups, migrating an old-format one."""
+        for files in ({forms.CONFIG: content}, None):
+            try:
+                if files is None:
+                    files = self.sopc.migrate({forms.CONFIG: content})["files"]
+                return forms.from_export(self.sopc.export(files))
+            except Invalid:
+                continue
+        return None
+
+    def _release_items(self, conn: Connection, ws: str, versions: dict[str, int]) -> dict | None:
+        """The items of a release's files; a release in the old format is read as `sopc migrate` converts it."""
+        if not versions:
+            return None
+        files = {}
+        for path, version in versions.items():
+            row = conn.execute(select(file_versions.c.content).where(file_versions.c.workspace == ws, file_versions.c.path == path, file_versions.c.version == version)).first()
+            if row and row[0] is not None:
+                files[path] = row[0]
+        try:
+            return forms.from_export(self.sopc.export(files))
+        except Invalid:
+            pass
+        try:
+            return forms.from_export(self.sopc.export(self.sopc.migrate(files)["files"]))
+        except Invalid:
+            return None
 
     def item_history(self, workspace: str, kind: str, id: str) -> list[dict]:
-        """Every version of an item, newest first. A procedure moved from Markdown to YAML keeps both histories."""
+        """Every version of an item, newest first. A procedure moved from Markdown to YAML keeps both histories.
+        Settings and groups share sopc.yaml, so each lists only the versions that changed it."""
         ws = _ws(workspace)
         q = (
             select(file_versions)
@@ -268,13 +398,24 @@ class Store:
             .order_by(file_versions.c.created_at.desc(), file_versions.c.version.desc())
         )
         with self.engine.connect() as conn:
-            rows = [_file_out(r) for r in conn.execute(q).mappings()]
+            raw = [dict(r) for r in conn.execute(q).mappings()]
+        rows = [{**{k: v for k, v in _file_out(r).items() if k != "path"}, "file": r["path"]} for r in raw]
+        if kind in ("settings", "group"):
+            keep, values = [], []
+            for r in raw:
+                parsed = self._parse(kind, id, r["path"], r["content"]) if r["content"] is not None else None
+                values.append(_fields(kind, parsed) if parsed is not None else None)
+            for i, row in enumerate(rows):
+                older = values[i + 1] if i + 1 < len(values) else None
+                if values[i] != older and not (values[i] is None and kind == "group" and older is None):
+                    keep.append({**row, "deleted": values[i] is None})
+            rows = keep
         if not rows:
             raise NotFound(f"{_KIND_NAMES[kind]} '{id}' not found")
-        return [{**{k: v for k, v in r.items() if k != "path"}, "file": r["path"]} for r in rows]
+        return rows
 
     def item_version(self, workspace: str, kind: str, id: str, version: int, file: str | None = None) -> dict:
-        """An older version of an item, as fields."""
+        """An older version of an item, as fields. One saved in the old format comes back as `legacy` with its `content`."""
         paths = forms.paths_of(kind, id)
         if file is not None and file not in paths:
             raise NotFound(f"'{file}' is not a file of {_KIND_NAMES[kind]} '{id}'")
@@ -283,10 +424,15 @@ class Store:
                 row = self.file(workspace, path, version)
             except NotFound:
                 continue
+            meta = {"file": path, "version": version, "updated_at": row["created_at"], "updated_by": row["author"]}
             if row["deleted"]:
-                return {"id": id, "version": version, "deleted": True, "file": path, "updated_at": row["created_at"], "updated_by": row["author"]}
+                return {"id": id, "deleted": True, **meta}
             found = self._parse(kind, id, path, row["content"])
-            return {**found, "file": path, "version": version, "deleted": False, "updated_at": row["created_at"], "updated_by": row["author"]}
+            if found is None and kind == "group":
+                return {"id": id, "deleted": True, **meta}
+            if found is None:
+                return {"id": id, "deleted": False, "legacy": True, "content": row["content"], **meta}
+            return {**found, "id": id, "deleted": False, **meta}
         raise NotFound(f"{_KIND_NAMES[kind]} '{id}' has no version {version}")
 
     # --- releases --------------------------------------------------------------
@@ -297,7 +443,8 @@ class Store:
         with self.engine.connect() as conn:
             head = self._head_rows(conn, ws)
             current = self._current(conn, ws)
-        live_files = current["files"] if current else {}
+            live_files = current["files"] if current else {}
+            before_items = self._release_items(conn, ws, live_files)
         live_agents = current["build"]["agents"] if current else {}
         head_versions = {r["path"]: r["version"] for r in head}
 
@@ -309,39 +456,52 @@ class Store:
                 files.append({"path": path, "change": change, "version": new, "released_version": old})
 
         compiled = self.sopc.compile({r["path"]: r["content"] for r in head}) if head else None
-        names = {}
-        head_items = self._items(head) if compiled and compiled.valid else None
-        if head_items:
-            for key, kind in (("agents", "agent"), ("bases", "base"), ("procedures", "procedure")):
-                for it in head_items[key]:
-                    names[(kind, it["id"])] = it.get("name") or it["id"]
+        try:
+            after_items = self._items(head) if head else None
+        except Invalid:
+            after_items = None
+        names = {**_block_names(before_items), **_block_names(after_items)}
+
         items: dict[tuple[str, str], dict] = {}
         for f in files:
             where = forms.item_of_path(f["path"])
-            if not where:
+            if not where or where[0] == "settings":
                 continue
             prev = items.get(where)
             change = f["change"]
-            if prev:  # a procedure moved between Markdown and YAML: one edit
+            if prev:  # a procedure moved between Markdown and YAML, or a base became an instruction: one edit
                 change = "edited" if {prev["change"], change} == {"added", "deleted"} else prev["change"]
             items[where] = {
                 "kind": where[0],
                 "id": where[1],
-                "name": "Settings" if where[0] == "settings" else names.get(where, where[1]),
                 "change": change,
                 "version": f["version"] if f["version"] is not None else (prev or {}).get("version"),
                 "released_version": f["released_version"] if f["released_version"] is not None else (prev or {}).get("released_version"),
             }
+        # sopc.yaml holds the settings and every group: one entry for each that changed.
+        config_file = next((f for f in files if f["path"] == forms.CONFIG), None)
+        if config_file:
+            for kind, id in [("settings", "settings")] + [("group", g) for g in _ordered_union(before_items, after_items, "groups")]:
+                b = forms.find(before_items, kind, id) if before_items else None
+                a = forms.find(after_items, kind, id) if after_items else None
+                if b is not None and a is not None and _fields(kind, b) == _fields(kind, a):
+                    continue
+                if b is None and a is None:
+                    continue
+                items[(kind, id)] = {
+                    "kind": kind,
+                    "id": id,
+                    "change": "added" if b is None else "deleted" if a is None else "edited",
+                    "version": config_file["version"],
+                    "released_version": config_file["released_version"],
+                }
         # Each changed item's fields before (as released) and after (head), for a field-by-field summary.
         for (kind, id), item in items.items():
-            after = forms.find(head_items, kind, id) if head_items else None
+            item["name"] = "Settings" if kind == "settings" else names.get(id, id) if kind != "agent" else id
+            after = forms.find(after_items, kind, id) if after_items else None
+            before = forms.find(before_items, kind, id) if before_items else None
             item["after"] = _fields(kind, after) if after is not None and item["change"] != "deleted" else None
-            item["before"] = None
-            released = [p for p in forms.paths_of(kind, id) if p in live_files]
-            if released:
-                row = self.file(ws, released[0], live_files[released[0]])
-                if row["content"] is not None:
-                    item["before"] = _fields(kind, self._parse(kind, id, released[0], row["content"]))
+            item["before"] = _fields(kind, before) if before is not None and item["change"] != "added" else None
         draft_agents = compiled.agents if compiled and compiled.valid else {}
         agents = []
         for agent_id in sorted(set(draft_agents) | set(live_agents)):
@@ -363,7 +523,7 @@ class Store:
             "workspace": ws,
             "release": current["number"] if current else None,
             "valid": compiled.valid if compiled else False,
-            "issues": [forms.locate(i).to_dict() for i in compiled.issues] if compiled else [],
+            "issues": [forms.locate(i, names).to_dict() for i in compiled.issues] if compiled else [],
             "files": files,
             "items": list(items.values()),
             "agents": agents,
@@ -459,7 +619,7 @@ class Store:
             return []
         compiled = self.sopc.compile(target)
         if not compiled.valid:
-            raise Invalid(compiled.issues)
+            raise Invalid([forms.locate(i, self._names(target)) for i in compiled.issues])
         now, written = _now(), []
         for path in sorted(set(target) | set(current)):
             new = target.get(path)
@@ -472,6 +632,12 @@ class Store:
             written.append({"path": path, "version": version, "deleted": new is None})
         return written
 
+    def _names(self, files: Files) -> dict[str, str]:
+        try:
+            return _block_names(forms.from_export(self.sopc.export(files)))
+        except Invalid:
+            return {}
+
     def _release(self, conn: Connection, workspace: str, author, note) -> tuple[dict, bool]:
         head = self._head_rows(conn, workspace)
         if not head:
@@ -480,9 +646,10 @@ class Store:
         current = self._current(conn, workspace)
         if current and current["files"] == versions:
             return _summary(current, True), False
-        compiled = self.sopc.compile({r["path"]: r["content"] for r in head})
+        files = {r["path"]: r["content"] for r in head}
+        compiled = self.sopc.compile(files)
         if not compiled.valid:
-            raise Invalid(compiled.issues)
+            raise Invalid([forms.locate(i, self._names(files)) for i in compiled.issues])
         build = {
             "agents": {
                 agent_id: {
@@ -543,17 +710,31 @@ def _components(blocks: list[dict], versions: dict[str, int]) -> list[dict]:
     return out
 
 
-_KIND_NAMES = {"agent": "agent", "base": "shared instruction", "procedure": "procedure", "settings": "settings"}
+_KIND_NAMES = {"agent": "agent", "instruction": "shared instruction", "procedure": "procedure", "group": "group", "settings": "settings"}
 
 
 def _name_taken(kind: str, id: str, other: str) -> Issue:
-    text = f"'{id}' is already the name of {other}; pick another name."
+    text = f"'{id}' is already the name of a {_KIND_NAMES[other]}; pick another name."
     return Issue("duplicate_id", text, "", "error", kind=kind, id=id, field="id", text=text)
 
 
 def _fields(kind: str, item: dict) -> dict:
-    """Just what a form edits (no versions or file paths)."""
+    """Just what a form edits (no versions, file paths or used_by)."""
     return {"id": item.get("id", "settings"), **{f: item[f] for f in forms.FIELDS[kind]}}
+
+
+def _block_names(items: dict | None) -> dict[str, str]:
+    """What people call each block: a procedure's name, else its id."""
+    return {p["id"]: p["name"] for p in items["procedures"]} if items else {}
+
+
+def _ordered_union(a: dict | None, b: dict | None, key: str) -> list[str]:
+    out: list[str] = []
+    for items in (b, a):
+        for x in (items or {}).get(key, []):
+            if x["id"] not in out:
+                out.append(x["id"])
+    return out
 
 
 def _check_paths(files: dict) -> None:

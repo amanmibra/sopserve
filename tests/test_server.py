@@ -29,20 +29,21 @@ def test_validate_render_lint(client, files):
 
     broken = {**files, "agents/tonys-pizza.yaml": files["agents/tonys-pizza.yaml"].replace("pizza-context", "nope")}
     res = client.post("/v1/validate", json={"files": broken}).json()
-    assert res["valid"] is False and res["issues"][0]["code"] == "unknown_base"
+    assert res["valid"] is False and res["issues"][0]["code"] == "unknown_block"
+    assert res["issues"][0]["field"] == "blocks" and res["issues"][0]["text"] == "Lists 'nope', which isn't a shared instruction, procedure or group."
     res = client.post("/v1/render", json={"files": broken})
     assert res.status_code == 422 and res.json()["issues"][0]["path"] == "agents/tonys-pizza.yaml"
 
     no_config = {p: c for p, c in files.items() if p != "sopc.yaml"}
     assert client.post("/v1/validate", json={"files": no_config}).json()["issues"][0]["code"] == "missing_config"
 
-    dup = {**files, "bases/closing.md": files["bases/closing.md"] + "\nSpeak warmly and briefly.\n"}
+    dup = {**files, "instructions/closing.md": files["instructions/closing.md"] + "\nSpeak warmly and briefly.\n"}
     findings = client.post("/v1/lint", json={"files": dup}).json()["findings"]
     assert findings and findings[0]["code"] == "duplicate_text"
     assert client.post("/v1/lint", json={"files": broken}).status_code == 422
 
 
-@pytest.mark.parametrize("path", ["/etc/passwd", "../x.md", "bases/../../x.md", "bases//x.md", "./sopc.yaml", "bases\\x.md", "C:/x.md"])
+@pytest.mark.parametrize("path", ["/etc/passwd", "../x.md", "instructions/../../x.md", "instructions//x.md", "./sopc.yaml", "bases\\x.md", "C:/x.md"])
 def test_unsafe_paths_are_rejected(client, files, path):
     res = client.post("/v1/validate", json={"files": {**files, path: "x"}}).json()
     assert res["valid"] is False and res["issues"][0]["code"] == "unsafe_path"
@@ -69,34 +70,34 @@ def test_edit_draft_release_fetch_rollback(client, files):
     assert client.post(f"{WS}/releases", json={}).json() == {**r1, "created": False}
 
     # Invalid edits are rejected and leave head untouched.
-    res = edit(client, {"agents/tonys-pizza.yaml": "livekit: tonys-pizza\ninherits: [nope]\n"})
-    assert res.status_code == 422 and res.json()["issues"][0]["code"] == "unknown_base"
-    res = edit(client, {"bases/brand-voice.md": "Be brief.", "bases/pizza-context.md": None})
-    assert res.status_code == 422  # tonys-pizza still inherits pizza-context
-    assert client.get(f"{WS}/files/bases/brand-voice.md").json()["version"] == 1
+    res = edit(client, {"agents/tonys-pizza.yaml": "livekit: tonys-pizza\nblocks: [brand-voice, nope]\n"})
+    assert res.status_code == 422 and res.json()["issues"][0]["code"] == "unknown_block"
+    res = edit(client, {"instructions/brand-voice.md": "Be brief.", "instructions/pizza-context.md": None})
+    assert res.status_code == 422  # tonys-pizza still lists pizza-context
+    assert client.get(f"{WS}/files/instructions/brand-voice.md").json()["version"] == 1
 
     # A valid edit bumps only that file's version, and isn't live until released.
-    voice = files["bases/brand-voice.md"].replace("briefly", "concisely")
-    res = edit(client, {"bases/brand-voice.md": voice, "bases/closing.md": files["bases/closing.md"]}, author="ana", note="tone")
-    assert res.json()["changed"] == [{"path": "bases/brand-voice.md", "version": 2, "deleted": False}]
-    assert edit(client, {"bases/brand-voice.md": voice}).json()["changed"] == []
+    voice = files["instructions/brand-voice.md"].replace("briefly", "concisely")
+    res = edit(client, {"instructions/brand-voice.md": voice, "instructions/closing.md": files["instructions/closing.md"]}, author="ana", note="tone")
+    assert res.json()["changed"] == [{"path": "instructions/brand-voice.md", "version": 2, "deleted": False}]
+    assert edit(client, {"instructions/brand-voice.md": voice}).json()["changed"] == []
     assert "briefly" in client.get(f"{WS}/agents/tonys-pizza/prompt").text
 
     draft = client.get(f"{WS}/draft").json()
     assert draft["release"] == 1
-    assert draft["files"] == [{"path": "bases/brand-voice.md", "change": "edited", "version": 2, "released_version": 1}]
+    assert draft["files"] == [{"path": "instructions/brand-voice.md", "change": "edited", "version": 2, "released_version": 1}]
     assert {a["agent"]: a["status"] for a in draft["agents"]} == {"luigis-trattoria": "changed", "sakura-sushi": "changed", "tonys-pizza": "changed"}
     assert "concisely" in draft["agents"][0]["prompt"]
 
     r2 = client.post(f"{WS}/releases", json={"author": "ana", "note": "tone"}).json()["release"]
-    assert r2["number"] == 2 and r2["files"]["bases/brand-voice.md"] == 2
+    assert r2["number"] == 2 and r2["files"]["instructions/brand-voice.md"] == 2
 
     # The call-start lookup: prompt plus the component versions it was built from.
     agent = client.get(f"{WS}/agents/livekit:tonys-pizza").json()
     assert agent["agent"] == "tonys-pizza" and agent["release"] == 2 and "concisely" in agent["prompt"]
     assert agent["tool_sops"] == ["large-orders"]
     components = {c["path"]: c["version"] for c in agent["components"]}
-    assert components["bases/brand-voice.md"] == 2 and components["bases/pizza-context.md"] == 1
+    assert components["instructions/brand-voice.md"] == 2 and components["instructions/pizza-context.md"] == 1
     assert components["procedures/large-orders.yaml"] == 1 and components["sopc.yaml"] == 1
     assert components["agents/tonys-pizza.yaml"] == 1
     assert "procedures/reservations.yaml" not in components
@@ -122,10 +123,10 @@ def test_edit_draft_release_fetch_rollback(client, files):
     assert "concisely" in detail["agents"]["sakura-sushi"]["prompt"] and detail["current"] is False
 
     # History and old versions.
-    history = client.get(f"{WS}/history/bases/brand-voice.md").json()
+    history = client.get(f"{WS}/history/instructions/brand-voice.md").json()
     assert [(h["version"], h["author"], h["note"]) for h in history] == [(2, "ana", "tone"), (1, "ana", None)]
-    old = client.get(f"{WS}/files/bases/brand-voice.md", params={"version": 1}).json()
-    assert old["content"] == files["bases/brand-voice.md"]
+    old = client.get(f"{WS}/files/instructions/brand-voice.md", params={"version": 1}).json()
+    assert old["content"] == files["instructions/brand-voice.md"]
 
 
 def test_delete_and_add_files(client, files):
@@ -133,14 +134,14 @@ def test_delete_and_add_files(client, files):
     client.post(f"{WS}/releases")
 
     sakura, reservations = files["agents/sakura-sushi.yaml"], files["procedures/reservations.yaml"]
-    res = edit(client, {"agents/sakura-sushi.yaml": None, "procedures/reservations.yaml": reservations.replace("sakura-sushi", "new-place")})
-    assert res.status_code == 422 and res.json()["issues"][0]["code"] == "unknown_agent"  # all or nothing
+    res = edit(client, {"agents/sakura-sushi.yaml": None, "instructions/closing.md": None})
+    assert res.status_code == 422 and res.json()["issues"][0]["code"] == "unknown_block"  # all or nothing
     res = edit(
         client,
         {
             "agents/sakura-sushi.yaml": None,
             "agents/new-place.yaml": sakura.replace("sakura-sushi", "new-place"),
-            "procedures/reservations.yaml": reservations.replace("sakura-sushi", "new-place"),
+            "procedures/reservations.yaml": reservations.replace("Never double-book a table", "Never double-book"),
         },
     )
     assert res.status_code == 200, res.json()
@@ -178,8 +179,9 @@ def test_git_publish_replace_and_export(client, files):
 
     # A path missing from a full replace is deleted.
     without = {p: c for p, c in files.items() if p != "procedures/reservations.yaml"}
+    without = {p: c.replace("  - reservations\n", "") if p.startswith("agents/") else c for p, c in without.items()}
     body = client.post(f"{WS}/publish", json={"files": without}).json()
-    assert body["changed"] == [{"path": "procedures/reservations.yaml", "version": 2, "deleted": True}]
+    assert {c["path"] for c in body["changed"]} == {"procedures/reservations.yaml", "agents/luigis-trattoria.yaml", "agents/sakura-sushi.yaml"}
     assert "### Reservations" not in client.get(f"{WS}/agents/sakura-sushi/prompt").text
 
     broken = {**files, "sopc.yaml": "version: [\n"}

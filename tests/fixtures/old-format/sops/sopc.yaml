@@ -1,0 +1,4 @@
+version: 1
+variables:
+  staff_transfer: the manager on duty
+sop_order: [allergen-check]

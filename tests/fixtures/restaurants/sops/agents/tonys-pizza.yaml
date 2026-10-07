@@ -1,7 +1,14 @@
 livekit: tonys-pizza
-inherits: [pizza-context]
+context: |
+  Tony's is a wood-fired pizza shop in Brooklyn. Pickup only after 10pm. Cash and card.
+blocks:
+  - restaurant-host
+  - pizza-context
+  - brand-voice
+  - allergen-check
+  - delivery-orders
+  - closing
+
 variables:
   restaurant_name: Tony's Pizza
   menu_allergen_link: tonys.com/allergens
-instructions: |
-  Tony's is a wood-fired pizza shop in Brooklyn. Pickup only after 10pm. Cash and card.
