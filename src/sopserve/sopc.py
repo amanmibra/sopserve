@@ -2,7 +2,7 @@
 
 Each call writes the files to a temp folder and runs `sopc validate --json`, then `sopc -o` or `sopc lint --json`;
 `sopc export` reads files into the structured items the forms edit. The binary is `SOPC_BIN`, else `sopc` on PATH.
-It needs the v0.0.9 format (agents compose blocks); `sopc migrate` converts a folder in the older format.
+It needs the current format (agents compose blocks, no `locked`); `sopc migrate` converts a folder in an older one.
 """
 
 from __future__ import annotations
@@ -146,7 +146,7 @@ class Sopc:
 
     def migrate(self, files: Files) -> dict:
         """`sopc migrate --yes` on a copy of the files: {migrated, plan, files}. `migrated` is False if the
-        files were already in the current format. Raises Invalid if sopc can't convert them exactly."""
+        files were already in the current format. It converts the v0.0.8 format and removes `locked` (v0.0.9). Raises Invalid if sopc can't convert them exactly."""
         key = "migrate:" + _digest(files)
         with self._lock:
             if key in self._exports:
@@ -162,7 +162,7 @@ class Sopc:
             if "already in the current format" in out:
                 return {"migrated": False, "plan": "", "files": dict(files)}
             lines = [line for line in out.splitlines() if not line.startswith(("Wrote ", "Run `sopc`"))]
-            plan = "\n".join(lines).replace("Migrating . to", "Migrating to", 1)
+            plan = "\n".join(lines).replace("Migrating . to", "Migrating to", 1).replace(" no longer has from . (", " no longer has (", 1)
             migrated = {p.relative_to(root).as_posix(): p.read_bytes().decode() for p in sorted(root.rglob("*")) if p.is_file()}
             result = {"migrated": True, "plan": plan, "files": migrated}
         with self._lock:

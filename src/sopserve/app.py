@@ -154,6 +154,7 @@ class DraftResponse(BaseModel):
     files: list[FileChange] = Field(description="Files changed since the current release.")
     items: list[DraftItem] = Field(description="The same changes as agents, shared instructions, procedures, groups and settings.")
     agents: list[DraftAgent]
+    lint: list[LintFinding] = Field([], description="`sopc lint` on the draft: duplicated or conflicting instructions. Advisory; publishing isn't blocked.")
 
 
 class ReleaseRequest(BaseModel):
@@ -257,7 +258,6 @@ class AgentFields(BaseModel):
 
 class InstructionFields(BaseModel):
     text: str
-    locked: bool = Field(False, description="Every agent must include it (directly or through a group).")
 
 
 class ProcedureFields(BaseModel):
@@ -269,7 +269,6 @@ class ProcedureFields(BaseModel):
     never: list[Step] = []
     warning_signs: list[Step] = []
     delivery: Literal["prompt", "auto", "tool"] = "prompt"
-    locked: bool = Field(False, description="Every agent must include it (directly or through a group).")
 
 
 class GroupFields(BaseModel):
@@ -476,7 +475,8 @@ def create_app(store: Store) -> FastAPI:
 
     @app.post("/v1/migrate", response_model=MigrateFilesResponse, responses=invalid, dependencies=v1, tags=["stateless"])
     def migrate_files(req: FilesRequest) -> dict:
-        """Convert a folder in the sopc v0.0.8 format (bases/, agent targeting) with `sopc migrate`. Nothing stored."""
+        """Convert a folder in an older sopc format with `sopc migrate`: the v0.0.8 format (bases/, agent targeting),
+        or `locked` (v0.0.9), which sopc no longer has. Nothing stored."""
         return store.sopc.migrate(without_build(req.files))
 
     @app.post("/v1/lint", response_model=LintResponse, responses=invalid, dependencies=v1, tags=["stateless"])
@@ -520,7 +520,7 @@ def create_app(store: Store) -> FastAPI:
     @app.get("/v1/workspaces/{workspace}/config", response_model=ConfigResponse, dependencies=v1, tags=["config"])
     def get_config(workspace: str) -> dict:
         """Head as structured items: settings, agents, shared instructions, procedures (SOPs) and groups.
-        422 with `old_format` issues if the workspace is in the sopc v0.0.8 format: see `…/migrate`."""
+        422 with `old_format` or `removed_field` issues if the workspace is in an older sopc format: see `…/migrate`."""
         return {"workspace": workspace, **store.items(workspace)}
 
     def item_routes(kind: str, plural: str, In: type[BaseModel], New: type[BaseModel], Out: type[BaseModel]) -> None:
@@ -591,7 +591,7 @@ def create_app(store: Store) -> FastAPI:
 
     @app.delete("/v1/workspaces/{workspace}/config/agents/{id}/blocks/{block}", response_model=AgentSaved, responses={**invalid, 409: {"description": "The agent gets it through a group."}}, dependencies=v1, tags=["config"])
     def remove_block(workspace: str, id: str, block: str, author: str | None = None, note: str | None = None) -> dict:
-        """Take a block out of the agent's blocks. 409 if the agent gets it through a group; 422 if it's locked."""
+        """Take a block out of the agent's blocks. 409 if the agent gets it through a group."""
         item, changed = store.remove_block(workspace, id, block, author, note)
         return {"item": item, "changed": changed}
 
@@ -602,7 +602,8 @@ def create_app(store: Store) -> FastAPI:
 
     @app.post("/v1/workspaces/{workspace}/migrate", response_model=MigrateResponse, responses=invalid, dependencies=v1, tags=["config"])
     def migrate(workspace: str, req: MigrateRequest | None = None) -> dict:
-        """Convert a workspace stored in the sopc v0.0.8 format with `sopc migrate`. Returns the plan;
+        """Convert a workspace stored in an older sopc format with `sopc migrate`: the v0.0.8 format, or
+        `locked` (v0.0.9), which sopc no longer has. Returns the plan;
         with `apply`, writes the converted files as a draft (publish to release them)."""
         req = req or MigrateRequest()
         return store.migrate(workspace, req.apply, req.author, req.note)

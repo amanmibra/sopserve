@@ -13,37 +13,37 @@
         {
           "kind": "instruction",
           "id": "restaurant-host",
-          "hash": "c2c6a7dc3267f9b932bb8d83d0ef22ed5248a5c7a21d9e6d894f9235a8ff48e3"
+          "hash": "fd00d4af3adb50a26a6336262528a8ca6fd0c549c32c5ed1a1f000605493af53"
         },
         {
           "kind": "instruction",
           "id": "brand-voice",
-          "hash": "92a2623a3e72dd6221450099de4c5f3c8c4c7fb091370061cb87bd26725804f9"
+          "hash": "81c2bccb80b8ce4ca2f5a00aa80145c595ae7aa826bb6123909316f3f631fec0"
         },
         {
           "kind": "sop",
           "id": "allergen-check",
-          "hash": "98bb79d314f8e94cc211cebad6e3c350417fa33afaf04180c90057f764f1bc1d"
+          "hash": "45ffbd3470539f174a2e5ba93cc9c0a54a93f0168f722be8b9b332dbfc729846"
         },
         {
           "kind": "sop",
           "id": "delivery-handling",
-          "hash": "b3caa05da1cb0ac605085a682ded0d8c2812e3826fd6594487e2ab064cd73e9b"
+          "hash": "cb9c9909a4c19a1cb8a448ac066b1782775ea0691ca499c19d04917fdf6c8427"
         },
         {
           "kind": "sop",
           "id": "large-orders",
-          "hash": "10c8b8868857dbf3c95b2941554a68485872f40072c1b8e5557fb66fadda003d"
+          "hash": "606c0b76c68a614b67a0f0c075ea3acc829752301ffbdb96dadd74ec37962482"
         },
         {
           "kind": "sop",
           "id": "reservations",
-          "hash": "0b5613d34800c0bbc5769ed8bd289585a84ee5875c3f931858fe88863a485d22"
+          "hash": "7538225b03e2dc907320f025f68afd0a29050b24fabe4e546f760788fba00806"
         },
         {
           "kind": "instruction",
           "id": "closing",
-          "hash": "9a7981f2d010f6448d78e2119fc233cb1a02412bc37ba3fb98204c8d24d9a007"
+          "hash": "ab19971272d5502347cbb1d8a869bb1f14b8cac91f2bcbf6a3d32db97e869fed"
         }
       ],
       "tools": [
@@ -67,27 +67,27 @@
         {
           "kind": "instruction",
           "id": "restaurant-host",
-          "hash": "c2c6a7dc3267f9b932bb8d83d0ef22ed5248a5c7a21d9e6d894f9235a8ff48e3"
+          "hash": "fd00d4af3adb50a26a6336262528a8ca6fd0c549c32c5ed1a1f000605493af53"
         },
         {
           "kind": "instruction",
           "id": "brand-voice",
-          "hash": "92a2623a3e72dd6221450099de4c5f3c8c4c7fb091370061cb87bd26725804f9"
+          "hash": "81c2bccb80b8ce4ca2f5a00aa80145c595ae7aa826bb6123909316f3f631fec0"
         },
         {
           "kind": "sop",
           "id": "allergen-check",
-          "hash": "98bb79d314f8e94cc211cebad6e3c350417fa33afaf04180c90057f764f1bc1d"
+          "hash": "45ffbd3470539f174a2e5ba93cc9c0a54a93f0168f722be8b9b332dbfc729846"
         },
         {
           "kind": "sop",
           "id": "reservations",
-          "hash": "0b5613d34800c0bbc5769ed8bd289585a84ee5875c3f931858fe88863a485d22"
+          "hash": "7538225b03e2dc907320f025f68afd0a29050b24fabe4e546f760788fba00806"
         },
         {
           "kind": "instruction",
           "id": "closing",
-          "hash": "9a7981f2d010f6448d78e2119fc233cb1a02412bc37ba3fb98204c8d24d9a007"
+          "hash": "ab19971272d5502347cbb1d8a869bb1f14b8cac91f2bcbf6a3d32db97e869fed"
         }
       ],
       "tools": [
@@ -109,37 +109,37 @@
         {
           "kind": "instruction",
           "id": "restaurant-host",
-          "hash": "c2c6a7dc3267f9b932bb8d83d0ef22ed5248a5c7a21d9e6d894f9235a8ff48e3"
+          "hash": "fd00d4af3adb50a26a6336262528a8ca6fd0c549c32c5ed1a1f000605493af53"
         },
         {
           "kind": "instruction",
           "id": "pizza-context",
-          "hash": "f3edb2a40586cc3e27ef73d45f42b5e7674e5f9764f98a7e63cd3293bfcee233"
+          "hash": "57ad41aeb8b873db4ab5db252a6fb0bc60bc095aa4385668548b9b24ef36ed73"
         },
         {
           "kind": "instruction",
           "id": "brand-voice",
-          "hash": "92a2623a3e72dd6221450099de4c5f3c8c4c7fb091370061cb87bd26725804f9"
+          "hash": "81c2bccb80b8ce4ca2f5a00aa80145c595ae7aa826bb6123909316f3f631fec0"
         },
         {
           "kind": "sop",
           "id": "allergen-check",
-          "hash": "98bb79d314f8e94cc211cebad6e3c350417fa33afaf04180c90057f764f1bc1d"
+          "hash": "45ffbd3470539f174a2e5ba93cc9c0a54a93f0168f722be8b9b332dbfc729846"
         },
         {
           "kind": "sop",
           "id": "delivery-handling",
-          "hash": "b3caa05da1cb0ac605085a682ded0d8c2812e3826fd6594487e2ab064cd73e9b"
+          "hash": "cb9c9909a4c19a1cb8a448ac066b1782775ea0691ca499c19d04917fdf6c8427"
         },
         {
           "kind": "sop",
           "id": "large-orders",
-          "hash": "10c8b8868857dbf3c95b2941554a68485872f40072c1b8e5557fb66fadda003d"
+          "hash": "606c0b76c68a614b67a0f0c075ea3acc829752301ffbdb96dadd74ec37962482"
         },
         {
           "kind": "instruction",
           "id": "closing",
-          "hash": "9a7981f2d010f6448d78e2119fc233cb1a02412bc37ba3fb98204c8d24d9a007"
+          "hash": "ab19971272d5502347cbb1d8a869bb1f14b8cac91f2bcbf6a3d32db97e869fed"
         }
       ],
       "tools": [

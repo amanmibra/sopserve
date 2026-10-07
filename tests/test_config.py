@@ -12,7 +12,6 @@ CFG = f"{WS}/config"
 OLD = FIXTURE.parent / "old-format" / "sops"
 
 ALLERGEN_MD = """---
-locked: true
 # a note for people: front-matter comments never reach a prompt
 ---
 # Allergen check
@@ -68,7 +67,7 @@ def test_config_reads_every_item(seeded):
     assert tonys["version"] == 1 and tonys["file"] == "agents/tonys-pizza.yaml"
 
     voice = seeded.get(f"{CFG}/instructions/brand-voice").json()
-    assert voice["locked"] is True and voice["text"].startswith("Speak warmly") and voice["file"] == "instructions/brand-voice.md"
+    assert "locked" not in voice and voice["text"].startswith("Speak warmly") and voice["file"] == "instructions/brand-voice.md"
     assert {u["agent"] for u in voice["used_by"]} == {"tonys-pizza", "luigis-trattoria", "sakura-sushi"}
 
     [group] = cfg["groups"]
@@ -166,28 +165,54 @@ def test_create_edit_delete_agent(seeded):
     assert seeded.get(f"{WS}/draft").json()["items"] == []
 
 
-def test_locked_blocks_must_be_in_every_agent(seeded):
+def test_any_block_can_be_left_out(seeded):
     sakura = seeded.get(f"{CFG}/agents/sakura-sushi").json()
     res = seeded.put(f"{CFG}/agents/sakura-sushi", json={**sakura, "blocks": [b for b in sakura["blocks"] if b != "brand-voice"]})
-    bad = issue(res, "blocks")
-    assert bad["code"] == "locked" and bad["kind"] == "agent" and bad["id"] == "sakura-sushi"
-    assert bad["text"] == "Every agent must include brand-voice; sakura-sushi doesn't."
-
-    # Locking a procedure not every agent uses names each agent that doesn't, by the procedure's name.
+    assert res.status_code == 200, res.json()
+    assert seeded.delete(f"{CFG}/agents/sakura-sushi/blocks/allergen-check").status_code == 200
+    assert "Speak warmly" not in prompts(seeded)["sakura-sushi"]
+    # `locked` isn't a field any more; one sent anyway is ignored.
     proc = seeded.get(f"{CFG}/procedures/reservations").json()
-    res = seeded.put(f"{CFG}/procedures/reservations", json={**proc, "locked": True})
-    assert res.status_code == 422
-    assert [i["text"] for i in res.json()["issues"]] == ["Every agent must include Reservations; tonys-pizza doesn't."]
-    assert res.json()["issues"][0]["kind"] == "agent" and res.json()["issues"][0]["field"] == "blocks"
+    assert seeded.put(f"{CFG}/procedures/reservations", json={**proc, "locked": True}).json()["changed"] == []
 
-    # Once every agent has it (directly or through a group), it can be locked.
+
+def test_locked_from_sopc_v009_is_refused_then_converted(client, files):
+    locked = {**files, "instructions/brand-voice.md": "---\nlocked: true\n---\n" + files["instructions/brand-voice.md"]}
+    res = client.post(f"{WS}/publish", json={"files": locked})
+    bad = issue(res)
+    assert (bad["code"], bad["kind"], bad["id"]) == ("removed_field", "instruction", "brand-voice")
+    assert "`locked`" in bad["text"] and "sopc migrate" in bad["text"]
+
+    # A workspace stored with it (by a sopserve that spoke sopc v0.0.9) converts like an old-format one.
+    now = datetime.now(timezone.utc)
+    with client.app.state.store.engine.begin() as conn:
+        for path, content in locked.items():
+            conn.execute(insert(file_versions).values(workspace="demo", path=path, version=1, content=content, created_at=now, author="old"))
+    assert issue(client.get(CFG))["code"] == "removed_field"
+    plan = client.post(f"{WS}/migrate", json={}).json()
+    assert plan["needed"] and plan["plan"].startswith("Removing fields the format no longer has (1 file(s) change):\n  instructions/brand-voice.md: removed locked\n")
+    res = client.post(f"{WS}/migrate", json={"apply": True}).json()
+    assert res["applied"] and res["changed"] == [{"path": "instructions/brand-voice.md", "version": 2, "deleted": False}]
+    assert client.get(f"{CFG}/instructions/brand-voice").json()["text"].startswith("Speak warmly")
+    assert client.post(f"{WS}/migrate", json={}).json()["needed"] is False
+    # The version with the lock reads as converted, not as legacy.
+    old = client.get(f"{CFG}/instructions/brand-voice/versions/1").json()
+    assert "legacy" not in old and old["text"] == files["instructions/brand-voice.md"].strip()
+
+
+def test_draft_lists_lint_findings(seeded):
+    assert seeded.get(f"{WS}/draft").json()["lint"] == []
     tonys = seeded.get(f"{CFG}/agents/tonys-pizza").json()
-    assert seeded.put(f"{CFG}/agents/tonys-pizza", json={**tonys, "blocks": [*tonys["blocks"][:-1], "reservations", "closing"]}).status_code == 200
-    assert seeded.put(f"{CFG}/procedures/reservations", json={**proc, "locked": True}).status_code == 200
+    context = tonys["context"].rstrip() + " Never upsell more than twice per call.\n"
+    assert seeded.put(f"{CFG}/agents/tonys-pizza", json={**tonys, "context": context}).status_code == 200  # advisory: saving works
+    [finding] = seeded.get(f"{WS}/draft").json()["lint"]
+    assert finding["code"] == "numeric_conflict" and finding["agents"] == ["tonys-pizza"]
+    assert [s["text"] for s in finding["sources"]] == ["Never upsell more than twice per call.", "Never upsell more than once per call."]
+    assert seeded.post(f"{WS}/releases", json={}).status_code == 200  # and so does publishing
 
 
 def test_shared_instructions(seeded):
-    hours = {"id": "hours", "text": "  We open at {{opening_time}}.  \n", "locked": False}
+    hours = {"id": "hours", "text": "  We open at {{opening_time}}.  \n"}
     res = seeded.post(f"{CFG}/instructions", json=hours)
     assert res.status_code == 201, res.json()  # nobody uses it yet, so no variable is missing
     assert res.json()["item"]["text"] == "We open at {{opening_time}}." and res.json()["item"]["used_by"] == []
@@ -216,7 +241,7 @@ def test_shared_instructions(seeded):
     assert res.status_code == 200, res.json()
     assert {c["path"] for c in res.json()["changed"]} == {"instructions/hours.md", "agents/sakura-sushi.yaml", "sopc.yaml"}
     assert seeded.get(f"{CFG}/groups/delivery-orders").json()["blocks"] == group["blocks"]
-    assert seeded.delete(f"{CFG}/instructions/brand-voice").status_code == 200  # a locked one too
+    assert seeded.delete(f"{CFG}/instructions/brand-voice").status_code == 200
     assert all("brand-voice" not in a["blocks"] for a in seeded.get(CFG).json()["agents"])
 
 
@@ -284,7 +309,7 @@ def test_matrix_toggles(seeded):
     # Remove: only what the agent lists itself.
     res = seeded.delete(f"{CFG}/agents/tonys-pizza/blocks/large-orders")
     assert res.status_code == 409 and "through the group delivery-orders" in res.json()["detail"]
-    assert issue(seeded.delete(f"{CFG}/agents/tonys-pizza/blocks/brand-voice"), "blocks")["text"] == "Every agent must include brand-voice; tonys-pizza doesn't."
+    assert "brand-voice" not in seeded.delete(f"{CFG}/agents/tonys-pizza/blocks/brand-voice").json()["item"]["blocks"]
     assert seeded.delete(f"{CFG}/agents/tonys-pizza/blocks/reservations").status_code == 404
     res = seeded.delete(f"{CFG}/agents/tonys-pizza/blocks/pizza-context", params={"author": "ana"})
     assert res.status_code == 200 and "pizza-context" not in res.json()["item"]["blocks"]
@@ -300,7 +325,9 @@ def test_preview(seeded):
     assert seeded.get(f"{WS}/draft").json()["files"] == []  # nothing saved
 
     res = seeded.post(f"{CFG}/agents/tonys-pizza/preview", json={**tonys, "blocks": ["closing"]}).json()
-    assert not res["valid"] and res["prompt"] is None and {i["code"] for i in res["issues"] if i["severity"] == "error"} == {"locked"}
+    assert res["valid"] and res["prompt"].startswith(tonys["context"].strip()) and res["prompt"].rstrip().endswith("delivery time.")
+    res = seeded.post(f"{CFG}/agents/tonys-pizza/preview", json={**tonys, "blocks": ["closing", "nope"]}).json()
+    assert not res["valid"] and res["prompt"] is None and {i["code"] for i in res["issues"] if i["severity"] == "error"} == {"unknown_block"}
     res = seeded.post(f"{CFG}/agents/new-one/preview", json={"platform": "vapi", "platform_id": "x", "blocks": ["restaurant-host", "brand-voice", "allergen-check"]}).json()
     assert not res["valid"] and any(i["code"] == "unset_variable" for i in res["issues"]) and res["released_prompt"] is None
 
@@ -316,7 +343,6 @@ def test_procedures(seeded):
         "never": [{"text": "Never promise an exact time"}],
         "warning_signs": [{"text": "Caller sounds unwell; transfer to {{staff_transfer}}", "tool": "transfer_to_staff"}],
         "delivery": "prompt",
-        "locked": False,
     }
     res = seeded.post(f"{CFG}/procedures", json=proc)
     assert res.status_code == 201, res.json()
@@ -365,7 +391,7 @@ def test_markdown_procedure_from_git_round_trips(client, files):
     assert client.get(f"{WS}/agents/tonys-pizza/prompt").text == expected("tonys-pizza.prompt.md")
 
     proc = client.get(f"{CFG}/procedures/allergen-check").json()
-    assert proc["format"] == "markdown" and proc["locked"] is True
+    assert proc["format"] == "markdown" and "locked" not in proc
     assert proc["steps"][2] == {"text": "Check each item the customer ordered against {{menu_allergen_link}}", "tool": "lookup_allergens", "required": True}
     assert client.put(f"{CFG}/procedures/allergen-check", json=proc).json()["changed"] == []
 
@@ -374,7 +400,7 @@ def test_markdown_procedure_from_git_round_trips(client, files):
     res = client.put(f"{CFG}/procedures/allergen-check", json=proc)
     assert res.json()["changed"] == [{"path": "procedures/allergen-check.md", "version": 2, "deleted": False}]
     content = client.get(f"{WS}/files/procedures/allergen-check.md").json()["content"]
-    assert content.startswith("---\nlocked: true\n---\n# Allergen check\n") and content.endswith("## Never\n- Never say an item is \"allergen-free\" or \"safe\"\n- Never place the order before allergens are confirmed `tool: place_order`\n- Never guess\n\n## Warning signs\n- Customer mentions anaphylaxis or an EpiPen; transfer to {{staff_transfer}} `tool: transfer_to_staff`\n")
+    assert content.startswith("# Allergen check\n") and content.endswith("## Never\n- Never say an item is \"allergen-free\" or \"safe\"\n- Never place the order before allergens are confirmed `tool: place_order`\n- Never guess\n\n## Warning signs\n- Customer mentions anaphylaxis or an EpiPen; transfer to {{staff_transfer}} `tool: transfer_to_staff`\n")
     draft = client.get(f"{WS}/draft").json()
     assert {a["agent"] for a in draft["agents"] if a["status"] == "changed"} == {"tonys-pizza", "luigis-trattoria", "sakura-sushi"}
 
@@ -416,7 +442,7 @@ def test_any_text_round_trips_exactly(seeded):
     assert seeded.get(f"{CFG}/groups/delivery-orders").json()["blocks"] == ["delivery-handling", "large-orders"]
 
     for text in [t for t in TRICKY if t.strip()]:
-        proc = {"id": "tricky", "name": text.strip(), "goal": "g", "when": "", "guidance": text, "steps": [{"text": text}], "never": [], "warning_signs": [], "delivery": "prompt", "locked": False}
+        proc = {"id": "tricky", "name": text.strip(), "goal": "g", "when": "", "guidance": text, "steps": [{"text": text}], "never": [], "warning_signs": [], "delivery": "prompt"}
         res = seeded.put(f"{CFG}/procedures/tricky", json=proc)
         assert res.status_code == 200, (text, res.json())
         got = seeded.get(f"{CFG}/procedures/tricky").json()

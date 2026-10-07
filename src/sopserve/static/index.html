@@ -73,13 +73,6 @@
   textarea.tall { min-height: 200px; }
   .top select, .top input { width: auto; }
   label.check { display: inline-flex; gap: 8px; align-items: center; cursor: pointer; }
-  .switch { position: relative; width: 36px; height: 20px; flex: none; }
-  .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .switch span { position: absolute; inset: 0; background: var(--line-strong); border-radius: 20px; transition: background .15s; }
-  .switch span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 14px; height: 14px; background: var(--panel); border-radius: 50%; transition: transform .15s; }
-  .switch input:checked + span { background: var(--accent); }
-  .switch input:checked + span::after { transform: translateX(16px); }
-  .switch input:focus-visible + span { box-shadow: var(--focus); }
   .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; flex-wrap: wrap; }
   .seg button { border: 0; background: var(--panel); padding: 6px 12px; cursor: pointer; border-right: 1px solid var(--line); }
   .seg button:last-child { border-right: 0; }
@@ -215,8 +208,6 @@
   .b-procedure { color: var(--c-procedure); background: color-mix(in srgb, var(--c-procedure) 13%, transparent); }
   .b-group { color: var(--c-group); background: color-mix(in srgb, var(--c-group) 15%, transparent); }
   .b-missing { color: var(--err); background: var(--err-soft); }
-  .lock { font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 5px; padding: 0 5px; margin-left: 6px; white-space: nowrap; }
-  .lock.big { font-size: 12px; padding: 1px 8px; margin-left: 0; }
   .stack { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
   .form > .field { min-width: 0; }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
@@ -356,7 +347,6 @@ const DELIVERY = [
   ["auto", "Rules in the prompt, steps on request", "The name, when it applies, never and warning signs stay in the prompt. The goal, guidance and steps are fetched with the agent's get_sop tool."],
   ["tool", "Only the name in the prompt, the rest on request", "The prompt names the procedure and when it applies. Everything else is fetched with the agent's get_sop tool."],
 ];
-const LOCK_HELP = "Every agent must include it, directly or through a group. Saving fails if one doesn't.";
 
 // ---------------------------------------------------------------------------------
 // state and API
@@ -376,14 +366,19 @@ async function api(method, path, body) {
 const wsUrl = (p = "") => `/v1/workspaces/${encodeURIComponent(S.ws)}${p}`;
 const author = () => $("author").value.trim() || null;
 
+// Issues that mean the workspace is stored in an older sopc format, which the Convert page fixes.
+const LEGACY_CODES = ["old_format", "removed_field"];
 async function loadAll() {
+  let legacy = null;
   const [cfg, draft, releases] = await Promise.all([
     api("GET", wsUrl("/config")).catch((e) => {
-      if (e.status === 422 && ((e.data && e.data.issues) || []).some((i) => i.code === "old_format")) return null;
+      const codes = ((e.data && e.data.issues) || []).map((i) => i.code);
+      legacy = e.status === 422 ? LEGACY_CODES.find((c) => codes.includes(c)) || null : null;
+      if (legacy) return null;
       throw e;
     }),
     api("GET", wsUrl("/draft")), api("GET", wsUrl("/releases"))]);
-  S.legacy = cfg === null;
+  S.legacy = cfg === null ? legacy : null;
   S.cfg = cfg || clone(EMPTY_CFG); S.draft = draft; S.releases = releases;
 }
 async function liveRelease() {
@@ -485,8 +480,7 @@ function renderRail() {
   const group = (kind, items) => el("div", { class: "rail-group" },
     el("div", { class: "rail-head" }, el("h2", {}, el("a", { href: `#/${KIND[kind].route}`, style: "color:inherit;text-decoration:none" }, KIND[kind].many)),
       el("button", { class: "btn small ghost", onclick: () => go(KIND[kind].route, "new"), "aria-label": `New ${KIND[kind].one.toLowerCase()}` }, "+ New")),
-    items.length ? items.map((it) => link(itemHref(kind, it.id), kind === "procedure" ? it.name : it.id, kind, it.id,
-      it.locked ? el("span", { class: "lock", title: "Locked: every agent includes it" }, "locked") : "")) : el("div", { class: "empty" }, "None yet"));
+    items.length ? items.map((it) => link(itemHref(kind, it.id), kind === "procedure" ? it.name : it.id, kind, it.id)) : el("div", { class: "empty" }, "None yet"));
   if (S.legacy) return $("rail").replaceChildren(el("div", { class: "rail-group" }, link("#/releases", "Releases")));
   $("rail").replaceChildren(
     el("div", { class: "rail-group" }, link("#/overview", "Overview")),
@@ -528,6 +522,18 @@ function issueList(issues, here) {
     return el("li", {}, elsewhere ? [el("a", { href: itemHref(i.kind, i.id) }, i.kind === "settings" ? "Settings" : `${KIND[i.kind].one} ${itemName(i.kind, i.id)}`), ": "] : "", i.text || i.message);
   }));
 }
+// `sopc lint` findings: each names the agents and the blocks (as sopc labels them) whose text conflicts.
+const LINT_KINDS = { agent: "agent", instruction: "instruction", SOP: "procedure" };
+function lintSource(label) {
+  const m = /^(agent|instruction|SOP) `([^`]+)`$/.exec(label);
+  const kind = m && LINT_KINDS[m[1]];
+  if (!kind) return label;
+  return el("a", { href: itemHref(kind, m[2]) }, `${KIND[kind].one} ${kind === "agent" ? m[2] : itemName(kind, m[2])}`);
+}
+function lintList(findings) {
+  return el("ul", {}, findings.map((f) => el("li", {}, `${f.message} (${plural(f.agents.length, "agent", "agents")}: ${f.agents.join(", ")})`,
+    el("ul", {}, f.sources.map((src) => el("li", {}, lintSource(src.block), ": ", f.code === "unused_variable" ? `{{${src.text}}}` : `"${src.text}"`))))));
+}
 function errorBanner(e, lead = "This change can't be saved yet:") {
   const issues = e.data && e.data.issues;
   if (!issues || !issues.length) return el("div", { class: "banner err", role: "alert" }, e.message);
@@ -557,10 +563,6 @@ function input(f, key, attrs = {}) {
 }
 function area(f, key, attrs = {}) {
   return el("textarea", { id: `f-${key}`, value: f.model[key] ?? "", oninput: (e) => { f.model[key] = e.target.value; touch(f); }, ...attrs });
-}
-function toggle(f, key, label) {
-  return el("label", { class: "check" }, el("span", { class: "switch" },
-    el("input", { type: "checkbox", id: `f-${key}`, checked: !!f.model[key], onchange: (e) => { f.model[key] = e.target.checked; touch(f); } }), el("span")), label);
 }
 function choose(f, key, options, after) {
   return el("select", { id: `f-${key}`, onchange: (e) => { f.model[key] = e.target.value; touch(f); if (after) after(); } },
@@ -687,12 +689,12 @@ function blockStack(f, key, { owner } = {}) {
         el("span", { class: "pos" }, `${i + 1}`),
         badge(kind),
         el("button", { class: "card-title", type: "button", "aria-expanded": String(isOpen), onclick: () => { isOpen ? open.delete(id) : open.add(id); draw(); } },
-          el("b", {}, kind ? blockName(id) : id), it && it.locked ? el("span", { class: "lock" }, "locked") : "", el("span", { class: "card-sub" }, sub)),
+          el("b", {}, kind ? blockName(id) : id), el("span", { class: "card-sub" }, sub)),
         el("span", { class: "ops" },
           kind ? el("a", { class: "btn small ghost", href: itemHref(kind, id), title: `Open ${blockName(id)} to edit it` }, "Open") : "",
           el("button", { class: "btn icon-btn", type: "button", disabled: i === 0, "aria-label": `Move ${blockName(id)} up`, onclick: () => move(i, i - 1) }, "↑"),
           el("button", { class: "btn icon-btn", type: "button", disabled: i === list.length - 1, "aria-label": `Move ${blockName(id)} down`, onclick: () => move(i, i + 1) }, "↓"),
-          el("button", { class: "btn icon-btn", type: "button", "aria-label": `Remove ${blockName(id)}`, title: it && it.locked ? "Locked: every agent must include it" : "Remove", onclick: () => { list.splice(i, 1); changed(); } }, "×"))),
+          el("button", { class: "btn icon-btn", type: "button", "aria-label": `Remove ${blockName(id)}`, title: "Remove", onclick: () => { list.splice(i, 1); changed(); } }, "×"))),
       errNodes(f, key, i),
       isOpen ? el("div", { class: "card-body" }, blockPreview(id)) : "");
     return li;
@@ -713,7 +715,7 @@ function blockStack(f, key, { owner } = {}) {
             const there = inList.has(x.id);
             const why = there ? (inList.get(x.id) ? `in ${inList.get(x.id)}` : "already listed") : "";
             return el("button", { class: "lib-item", type: "button", role: "listitem", disabled: there, onclick: () => { list.push(x.id); adding = false; changed(); } },
-              badge(k), el("span", { class: "lib-name" }, itemName(k, x.id)), x.locked ? el("span", { class: "lock" }, "locked") : "", el("span", { class: "note" }, why || (x.used_by ? `${plural(x.used_by.length, "agent", "agents")}` : "")));
+              badge(k), el("span", { class: "lib-name" }, itemName(k, x.id)), el("span", { class: "note" }, why || (x.used_by ? `${plural(x.used_by.length, "agent", "agents")}` : "")));
           }));
       });
       results.replaceChildren(...sections.filter(Boolean).length ? sections : [el("p", { class: "note" }, q ? "Nothing matches." : "Nothing to add yet. Create a block below.")]);
@@ -739,7 +741,7 @@ function blockStack(f, key, { owner } = {}) {
       const id = isProc ? slug(name.value) : name.value.trim();
       const body = isProc
         ? { id, name: name.value.trim(), goal: goal.value.trim(), steps: text.value.split("\n").map((t) => t.trim()).filter(Boolean).map((t) => ({ text: t })), author: author() }
-        : { id, text: text.value, locked: false, author: author() };
+        : { id, text: text.value, author: author() };
       try {
         await api("POST", wsUrl(`/config/${KIND[quick].api}`), body);
         const cfg = await api("GET", wsUrl("/config")); S.cfg = cfg;
@@ -853,7 +855,7 @@ function header(kind, id, title, tab) {
   const it = kind !== "settings" && findItem(kind, id);
   return [
     kind === "settings" ? "" : el("div", { class: "crumb" }, el("a", { href: `#/${KIND[kind].route}` }, KIND[kind].many)),
-    el("div", { class: "title-row" }, KIND[kind].badge ? badge(kind) : "", el("h1", {}, title), it && it.locked ? el("span", { class: "lock big" }, "locked") : "", c ? el("span", { class: "tag " + c.change }, `${c.change}, not published`) : ""),
+    el("div", { class: "title-row" }, KIND[kind].badge ? badge(kind) : "", el("h1", {}, title), c ? el("span", { class: "tag " + c.change }, `${c.change}, not published`) : ""),
     el("nav", { class: "tabs" }, tabs.map(([t, label]) => el("a", { href: t ? `${base}/${t}` : base, class: tab === t ? "on" : "", "aria-current": tab === t ? "page" : null }, label))),
   ];
 }
@@ -881,7 +883,9 @@ function homePage() {
 function migratePage() {
   const box = el("div", {}, el("p", { class: "muted" }, "Checking what converting changes…"));
   page(false, flash(), el("h1", {}, "Convert this workspace"),
-    el("p", { class: "sub" }, `${S.ws} is stored in the format of sopc v0.0.8 and earlier, where shared instructions chose their agents. Now each agent lists the blocks it uses, in order. Converting runs sopc migrate: every agent's prompt stays the same, except that its own text moves to the top.`),
+    el("p", { class: "sub" }, S.legacy === "removed_field"
+      ? `Some shared instructions or procedures in ${S.ws} are marked locked, a setting sopc no longer has. Converting runs sopc migrate, which removes it. No agent's prompt changes.`
+      : `${S.ws} is stored in the format of sopc v0.0.8 and earlier, where shared instructions chose their agents. Now each agent lists the blocks it uses, in order. Converting runs sopc migrate: every agent's prompt stays the same, except that its own text moves to the top.`),
     box);
   api("POST", wsUrl("/migrate"), {}).then((res) => {
     if (!res.needed) { box.replaceChildren(el("p", {}, "Nothing to convert."), el("button", { class: "btn", onclick: async () => { await loadAll(); render(); } }, "Reload")); return; }
@@ -889,7 +893,7 @@ function migratePage() {
     const msg = el("div");
     armed(btn, "Click again to convert", async () => {
       try {
-        await api("POST", wsUrl("/migrate"), { apply: true, author: author(), note: "Converted to the sopc v0.0.9 format" });
+        await api("POST", wsUrl("/migrate"), { apply: true, author: author(), note: "Converted with sopc migrate" });
         S.flash = { type: "ok", text: "Converted. The new files are a draft: check the changes, then publish." };
         await loadAll(); go("changes");
       } catch (e) { msg.replaceChildren(errorBanner(e, "It can't be converted:")); }
@@ -910,8 +914,8 @@ function listPage(kind) {
   const users = (it) => new Set((it.used_by || []).map((u) => u.agent)).size;
   const cols = {
     agent: [["Agent", (a) => el("b", {}, a.id)], ["Platform", (a) => `${platformName(a.platform)}: ${a.platform_id}`], ["Blocks", (a) => a.blocks.map(blockName).join(", ") || "None"]],
-    instruction: [["Name", (b) => [el("b", {}, b.id), b.locked ? el("span", { class: "lock" }, "locked") : ""]], ["Used by", (b) => plural(users(b), "agent", "agents")]],
-    procedure: [["Name", (p) => [el("b", {}, p.name), p.locked ? el("span", { class: "lock" }, "locked") : ""]], ["Used by", (p) => plural(users(p), "agent", "agents")], ["Steps", (p) => p.steps.length]],
+    instruction: [["Name", (b) => el("b", {}, b.id)], ["Used by", (b) => plural(users(b), "agent", "agents")]],
+    procedure: [["Name", (p) => el("b", {}, p.name)], ["Used by", (p) => plural(users(p), "agent", "agents")], ["Steps", (p) => p.steps.length]],
     group: [["Name", (g) => el("b", {}, g.id)], ["Blocks", (g) => g.blocks.map(blockName).join(", ") || "None"], ["Used by", (g) => plural(users(g), "agent", "agents")]],
   }[kind];
   page(false, flash(),
@@ -953,7 +957,7 @@ function matrixPage(notice) {
       rows.map(([kind, items]) => items.length ? el("tbody", {},
         el("tr", { class: "msec" }, el("th", { colspan: agents.length + 1, scope: "colgroup" }, KIND[kind].many)),
         items.map((it) => el("tr", {},
-          el("th", { scope: "row" }, badge(kind), " ", el("a", { href: itemHref(kind, it.id) }, itemName(kind, it.id)), it.locked ? el("span", { class: "lock" }, "locked") : ""),
+          el("th", { scope: "row" }, badge(kind), " ", el("a", { href: itemHref(kind, it.id) }, itemName(kind, it.id))),
           agents.map((a) => {
             const u = uses.get(a.id), direct = u.direct.has(it.id), via = !direct && u.via.get(it.id);
             const label = direct ? `${a.id} lists ${itemName(kind, it.id)}. Click to take it out.` : via ? `${a.id} gets ${itemName(kind, it.id)} through ${via}.` : `Add ${itemName(kind, it.id)} to ${a.id}.`;
@@ -969,8 +973,7 @@ function agentPage(id, tab) {
   if (!isNew && !item) return missing("agent", id);
   if (tab === "prompt") return promptPage(id);
   if (tab === "history") return historyPage("agent", id, item);
-  const locked = [...S.cfg.instructions, ...S.cfg.procedures].filter((b) => b.locked).map((b) => b.id);
-  const f = makeForm("agent", id, clone(item || { id: "", platform: "livekit", platform_id: "", context: "", blocks: locked, variables: {} }), isNew);
+  const f = makeForm("agent", id, clone(item || { id: "", platform: "livekit", platform_id: "", context: "", blocks: [], variables: {} }), isNew);
   let view = local.get("sopserve.previewmode"), timer = null, seq = 0, last = null;
   const preview = el("section", { class: "prompt preview", "aria-label": "Draft prompt" });
   const drawPreview = () => {
@@ -1009,7 +1012,6 @@ function agentPage(id, tab) {
   const draw = (top) => {
     const m = f.model;
     const plat = PLATFORMS.find((p) => p[0] === m.platform) || PLATFORMS[0];
-    const lockedMissing = locked.filter((b) => !expandBlocks(m.blocks).some((x) => x.id === b));
     page(true, flash(), ...(isNew ? newHeader("agent") : header("agent", id, id, "")), top || "",
       el("div", { class: "builder" },
         el("div", { class: "form" },
@@ -1019,7 +1021,7 @@ function agentPage(id, tab) {
             field(f, "platform_id", `${plat[1]} ${plat[2].toLowerCase()}`, null, input(f, "platform_id", { placeholder: plat[2] }))),
           field(f, "context", "About this agent", "Goes first in the prompt. Facts only this agent needs: the location, hours, what it doesn't offer.", area(f, "context")),
           field(f, "blocks", "Blocks", "Shared instructions, procedures and groups, in prompt order. Drag or use the arrows to reorder; open a block to read or edit it.",
-            [lockedMissing.length ? el("div", { class: "fwarn", style: "margin:0 0 8px" }, `Every agent must include ${lockedMissing.map(blockName).join(", ")}; this one doesn't yet.`) : "", blockStack(f, "blocks")]),
+            blockStack(f, "blocks")),
           field(f, "variables", "Variables", "Values for the {{placeholders}} in this agent's blocks. Leave one empty to use the default from Settings.", agentVars(f))),
         el("div", { class: "side" }, preview)),
       actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id }, note), onDelete: isNew ? null : () => deleteItem(f) }));
@@ -1036,14 +1038,13 @@ function instructionPage(id, tab) {
   const item = isNew ? null : S.cfg.instructions.find((b) => b.id === id);
   if (!isNew && !item) return missing("instruction", id);
   if (tab === "history") return historyPage("instruction", id, item);
-  const f = makeForm("instruction", id, clone(item || { id: "", text: "", locked: false }), isNew);
+  const f = makeForm("instruction", id, clone(item || { id: "", text: "" }), isNew);
   const draw = (top) => {
     const m = f.model;
     page(false, flash(), ...(isNew ? newHeader("instruction") : [...header("instruction", id, id, ""), usedByNote("instruction", item)]), top || "",
       el("div", { class: "form" },
         field(f, "id", "Name", isNew ? "A short id, for example brand-voice. Letters, digits and dashes. It can't be changed later." : null, input(f, "id", { readOnly: !isNew, placeholder: "brand-voice" })),
-        field(f, "text", "Text", "What the agents are told. Write {{name}} for a value that differs per agent, and set it in each agent's variables.", area(f, "text", { class: "tall" })),
-        field(f, "locked", "Locked", null, toggle(f, "locked", LOCK_HELP))),
+        field(f, "text", "Text", "What the agents are told. Write {{name}} for a value that differs per agent, and set it in each agent's variables.", area(f, "text", { class: "tall" }))),
       actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id }, note), onDelete: isNew ? null : () => deleteItem(f) }));
   };
   f.rerender = draw;
@@ -1057,7 +1058,7 @@ function procedurePage(id, tab) {
   const item = isNew ? null : S.cfg.procedures.find((p) => p.id === id);
   if (!isNew && !item) return missing("procedure", id);
   if (tab === "history") return historyPage("procedure", id, item);
-  const blank = { id: "", name: "", goal: "", when: "", guidance: "", steps: [{ text: "", tool: null, required: false }], never: [], warning_signs: [], delivery: "prompt", locked: false };
+  const blank = { id: "", name: "", goal: "", when: "", guidance: "", steps: [{ text: "", tool: null, required: false }], never: [], warning_signs: [], delivery: "prompt" };
   const f = makeForm("procedure", id, clone(item || blank), isNew);
   let idEdited = !isNew;
   const draw = (top) => {
@@ -1077,7 +1078,6 @@ function procedurePage(id, tab) {
         field(f, "never", "Never", "Things the agent must never do.", stepRows(f, "never", { placeholder: "Never …", noun: "Rule" })),
         field(f, "warning_signs", "Warning signs", "Situations that need special handling, usually a transfer to a person.", stepRows(f, "warning_signs", { placeholder: "Caller mentions …; transfer to …", noun: "Warning sign" })),
         field(f, "delivery", "Delivery", d[2], choose(f, "delivery", DELIVERY.map(([v, l]) => [v, l]), () => draw())),
-        field(f, "locked", "Locked", null, toggle(f, "locked", LOCK_HELP)),
       ),
       actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id, steps: m.steps.map(cleanStep), never: m.never.map(cleanStep), warning_signs: m.warning_signs.map(cleanStep) }, note), onDelete: isNew ? null : () => deleteItem(f) }));
   };
@@ -1248,8 +1248,8 @@ const promptCounts = (a) => diffCount(diffLines(splitLines(a.released_prompt), s
 // --- what changed in an item, field by field, in plain words
 const FIELD_LABELS = {
   agent: [["platform", "Platform"], ["platform_id", "Platform id"], ["context", "About this agent"], ["blocks", "Blocks"], ["variables", "Variables"]],
-  instruction: [["text", "Text"], ["locked", "Locked"]],
-  procedure: [["name", "Name"], ["goal", "Goal"], ["when", "When it applies"], ["guidance", "Guidance"], ["steps", "Steps"], ["never", "Never"], ["warning_signs", "Warning signs"], ["delivery", "Delivery"], ["locked", "Locked"]],
+  instruction: [["text", "Text"]],
+  procedure: [["name", "Name"], ["goal", "Goal"], ["when", "When it applies"], ["guidance", "Guidance"], ["steps", "Steps"], ["never", "Never"], ["warning_signs", "Warning signs"], ["delivery", "Delivery"]],
   group: [["blocks", "Blocks"]],
   settings: [["variables", "Default variables"], ["procedures_heading", "Procedures heading"]],
 };
@@ -1273,7 +1273,6 @@ function listChanges(a, b) {
 function scalarText(field, v) {
   if (field === "platform") return platformName(v);
   if (field === "delivery") return (DELIVERY.find((d) => d[0] === v) || [0, v])[1];
-  if (field === "locked") return v ? "On" : "Off";
   return v === "" ? "(empty)" : v;
 }
 const stepLine = (s) => `${s.text}${s.tool ? `  [tool: ${s.tool}${s.required ? ", required" : ""}]` : ""}`;
@@ -1382,8 +1381,8 @@ function readable(kind, it) {
   const vars = (title, v) => Object.keys(v).length ? [title, ...Object.entries(v).map(([k, x]) => `  ${k} = ${x}`)] : [`${title} none`];
   const block = (title, t) => t ? [title, ...t.replace(/\n+$/, "").split("\n").map((l) => "  " + l)] : [`${title} (empty)`];
   if (kind === "agent") return [`Platform: ${platformName(it.platform)}, ${it.platform_id}`, ...block("About this agent:", it.context), ...blocks(it.blocks), ...vars("Variables:", it.variables)];
-  if (kind === "instruction") return [...block("Text:", it.text), `Locked: ${it.locked ? "yes" : "no"}`];
-  if (kind === "procedure") return [`Name: ${it.name}`, `Goal: ${it.goal}`, `When: ${it.when}`, ...block("Guidance:", it.guidance), ...list("Steps:", it.steps, true), ...list("Never:", it.never), ...list("Warning signs:", it.warning_signs), `Delivery: ${(DELIVERY.find((d) => d[0] === it.delivery) || [0, it.delivery])[1]}`, `Locked: ${it.locked ? "yes" : "no"}`];
+  if (kind === "instruction") return block("Text:", it.text);
+  if (kind === "procedure") return [`Name: ${it.name}`, `Goal: ${it.goal}`, `When: ${it.when}`, ...block("Guidance:", it.guidance), ...list("Steps:", it.steps, true), ...list("Never:", it.never), ...list("Warning signs:", it.warning_signs), `Delivery: ${(DELIVERY.find((d) => d[0] === it.delivery) || [0, it.delivery])[1]}`];
   if (kind === "group") return blocks(it.blocks);
   return [...vars("Default variables:", it.variables), `Procedures heading: ${it.procedures_heading || "(none)"}`];
 }
@@ -1479,7 +1478,8 @@ function changesPage() {
     d.items.length ? d.items.map(item) : el("p", { class: "note" }, "Edits you save show up here, with what changed in each field and in each agent's prompt."),
     d.items.length ? [el("h2", { class: "section-title" }, changed.length ? `How ${changed.length === 1 ? "the agent's prompt changes" : "agents' prompts change"}` : "No agent's prompt changes"),
       changed.length ? changed.map((a, i) => agent(a, i < 3)) : el("p", { class: "note" }, "The saved edits don't change what any agent is told.")] : "",
-    warnings.length ? el("div", { class: "banner warn", style: "margin-top:18px" }, "Worth a look (these don't block publishing):", issueList(warnings)) : "");
+    warnings.length ? el("div", { class: "banner warn", style: "margin-top:18px" }, "Worth a look (these don't block publishing):", issueList(warnings)) : "",
+    (d.lint || []).length ? el("div", { class: "banner warn", style: "margin-top:18px" }, "Possible duplicates or conflicts, found by sopc lint (these don't block publishing; decide which text is right):", lintList(d.lint)) : "");
 }
 
 // --- releases

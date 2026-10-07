@@ -34,21 +34,21 @@ With Docker, from a clone: `docker build -t sopserve . && docker run -p 8484:848
 | Variable | Default | |
 |---|---|---|
 | `DATABASE_URL` | `sqlite:///sopserve.db` | Any SQLAlchemy URL. `postgres://` URLs use psycopg 3 (`pip install 'sopserve[postgres]'`). |
-| `SOPC_BIN` | `sopc` on `PATH` | The sopc binary, v0.0.9 or later. |
+| `SOPC_BIN` | `sopc` on `PATH` | The sopc binary: a build after v0.0.9 (without `locked`). |
 | `HOST`, `PORT` | `127.0.0.1`, `8484` | Also `--host`, `--port`. |
 
 ## How it works
 
 1. **Write blocks.** Shared instructions are text several agents get (identity, voice, policy). Procedures are step-by-step SOPs. A block doesn't say who uses it.
 2. **Compose agents.** Each agent is its own text, then the blocks it lists, in prompt order. Groups name a set of blocks many agents share.
-3. **Review the diff.** Every save is a draft. Unpublished changes shows what changed in each block and in each agent's prompt.
+3. **Review the diff.** Every save is a draft. Unpublished changes shows what changed in each block and in each agent's prompt, plus any duplicated or conflicting instructions `sopc lint` finds (advisory).
 4. **Publish a release.** A release is an immutable snapshot of every block plus the compiled prompts.
 5. **Agents fetch their prompt at call start**, with the release and block versions it was built from.
 6. **Roll back anytime** by making an older release live.
 
 | | What it is |
 |---|---|
-| Shared instruction | Prompt text that isn't a procedure. Lock it and every agent must include it. |
+| Shared instruction | Prompt text that isn't a procedure. |
 | Procedure | Goal, when it applies, steps (with tools), never-do's, warning signs. |
 | Group | A named, ordered list of blocks. An agent lists it like a block. |
 | Agent | One per voice agent: platform id, its own text, its blocks in order, variables. |
@@ -114,7 +114,7 @@ python3 -c 'import json,pathlib; r=pathlib.Path("sops"); print(json.dumps({"file
   | curl -fsS -X POST -H 'Content-Type: application/json' -d @- "$SOPSERVE_URL/publish"
 ```
 
-`build/` is ignored. A folder in the format of sopc v0.0.8 or earlier is refused with a message to run `sopc migrate`; a workspace stored in that format shows a Convert page in the UI.
+`build/` is ignored. A folder in the format of sopc v0.0.8 or earlier, or one that still sets `locked` (sopc v0.0.9), is refused with a message to run `sopc migrate`; a workspace stored that way shows a Convert page in the UI.
 
 You can switch any time: `GET …/files?content=true` exports a workspace as sopc files to commit.
 
@@ -133,7 +133,7 @@ Paths are under `/v1/workspaces/<ws>`. The full spec is at `/openapi.json` (SDKs
 | `GET …/draft` | Unpublished changes: each item before and after, and each agent's prompt diff. |
 | `POST …/releases`, `POST …/releases/<n>/activate` | Publish head; make an older release live. |
 | `POST …/publish` | Replace every file and release, for CI. |
-| `POST …/migrate` | Convert a workspace stored in the sopc v0.0.8 format. |
+| `POST …/migrate` | Convert a workspace stored in an older sopc format (v0.0.8, or `locked` from v0.0.9). |
 
 Errors from sopc come back as `422 {"valid": false, "issues": [...]}`, each issue naming the item and field it's about, in plain words.
 
@@ -151,7 +151,7 @@ v0. **There is no authentication yet**: anyone who can reach sopserve can read a
 ## Development
 
 ```sh
-uv sync && SOPC_BIN=/path/to/sopc uv run pytest   # sopc v0.0.9 or later
+uv sync && SOPC_BIN=/path/to/sopc uv run pytest   # a sopc build after v0.0.9
 ```
 
 ## License

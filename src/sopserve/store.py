@@ -339,7 +339,8 @@ class Store:
         return out
 
     def migrate(self, workspace: str, apply: bool = False, author=None, note=None) -> dict:
-        """Convert head from the sopc v0.0.8 format with `sopc migrate`. Without `apply`, only the plan."""
+        """Convert head from an older sopc format with `sopc migrate` (v0.0.8 targeting, or v0.0.9 `locked`).
+        Without `apply`, only the plan."""
         ws = _ws(workspace)
         with self._locked(ws) as conn:
             files = {r["path"]: r["content"] for r in self._head_rows(conn, ws)}
@@ -350,12 +351,19 @@ class Store:
             return {"workspace": ws, "needed": True, "plan": result["plan"], "applied": apply, "changed": changed}
 
     def _parse(self, kind: str, id: str, path: str, content: str) -> dict | None:
-        """One item's fields from one file's content, read by sopc on its own. None if it's in the old format."""
+        """One item's fields from one file's content, read by sopc on its own. A version that sets `locked`
+        (sopc v0.0.9) is read as `sopc migrate` converts it. None if it's in the v0.0.8 format."""
         if kind in ("settings", "group"):
             items = self._parse_config(content)
             return forms.find(items, kind, id) if items else None
+        files = {forms.CONFIG: "", path: content}
         try:
-            return forms.find(forms.from_export(self.sopc.export({forms.CONFIG: "", path: content})), kind, id)
+            return forms.find(forms.from_export(self.sopc.export(files)), kind, id)
+        except Invalid as e:
+            if not all(i.code == "removed_field" for i in e.issues):
+                return None
+        try:
+            return forms.find(forms.from_export(self.sopc.export(self.sopc.migrate(files)["files"])), kind, id)
         except Invalid:
             return None
 
@@ -455,7 +463,14 @@ class Store:
                 change = "added" if old is None else "deleted" if new is None else "edited"
                 files.append({"path": path, "change": change, "version": new, "released_version": old})
 
-        compiled = self.sopc.compile({r["path"]: r["content"] for r in head}) if head else None
+        head_files = {r["path"]: r["content"] for r in head}
+        compiled = self.sopc.compile(head_files) if head else None
+        lint = []
+        if compiled and compiled.valid:
+            try:
+                lint = self.sopc.lint(head_files)
+            except Invalid:
+                pass
         try:
             after_items = self._items(head) if head else None
         except Invalid:
@@ -527,6 +542,7 @@ class Store:
             "files": files,
             "items": list(items.values()),
             "agents": agents,
+            "lint": lint,
         }
 
     def release(self, workspace: str, author: str | None = None, note: str | None = None) -> tuple[dict, bool]:

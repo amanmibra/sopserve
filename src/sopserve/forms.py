@@ -88,7 +88,7 @@ def from_export(exported: dict) -> dict:
             }
             for a in exported["agents"]
         ],
-        "instructions": [{"id": b["id"], "text": b["text"], "locked": b["locked"], "file": b["file"]} for b in exported["instructions"]],
+        "instructions": [{"id": b["id"], "text": b["text"], "file": b["file"]} for b in exported["instructions"]],
         "procedures": [
             {
                 "id": s["id"],
@@ -100,7 +100,6 @@ def from_export(exported: dict) -> dict:
                 "never": [_step(x) for x in s["forbiddenActions"]],
                 "warning_signs": [_step(x) for x in s["warningSigns"]],
                 "delivery": s["delivery"],
-                "locked": s["locked"],
                 "format": "markdown" if s["file"].endswith(".md") else "yaml",
                 "file": s["file"],
             }
@@ -173,8 +172,8 @@ def used_by(items: dict) -> dict[str, list[dict]]:
 # The fields each kind is compared on (what a form edits). "config" is all of sopc.yaml.
 FIELDS = {
     "agent": ("platform", "platform_id", "context", "blocks", "variables"),
-    "instruction": ("text", "locked"),
-    "procedure": ("name", "goal", "when", "guidance", "steps", "never", "warning_signs", "delivery", "locked"),
+    "instruction": ("text",),
+    "procedure": ("name", "goal", "when", "guidance", "steps", "never", "warning_signs", "delivery"),
     "group": ("blocks",),
     "settings": ("variables", "procedures_heading"),
     "config": ("variables", "procedures_heading", "groups"),
@@ -337,15 +336,13 @@ def config_yaml(item: Item, y: Yaml) -> str:
 
 def instruction_md(item: Item, y: Yaml) -> str:
     text = item["text"].strip()
-    if item["locked"] or text.startswith("---"):
-        return "---\n" + ("locked: true\n" if item["locked"] else "") + "---\n" + text + "\n"
+    if text.startswith("---"):  # empty front matter, so the text isn't read as front matter
+        return "---\n---\n" + text + "\n"
     return text + "\n"
 
 
 def _settings(item: Item, y: Yaml) -> list[str]:
     out = []
-    if item["locked"]:
-        out.append("locked: true")
     if item["delivery"] != "prompt":
         out.append(f"delivery: {item['delivery']}")
     return out
@@ -483,6 +480,10 @@ OLD_FORMAT_TEXT = (
     "This folder is in the format of sopc v0.0.8 or earlier. Run `sopc migrate --yes` on it "
     "(or send it to POST /v1/migrate), then publish again."
 )
+REMOVED_FIELD_TEXT = (
+    "Uses `locked`, which sopc no longer has. Run `sopc migrate --yes` on the folder "
+    "(or convert the workspace) to remove it; no prompt changes."
+)
 
 
 def locate(issue: Issue, names: dict[str, str] | None = None) -> Issue:
@@ -528,9 +529,6 @@ def locate(issue: Issue, names: dict[str, str] | None = None) -> Issue:
         via = _VIA.findall(msg)
         how = f" (through the group {via[0]} and directly)" if len(via) == 1 and "directly" in msg else f" (through the groups {' and '.join(via)})" if len(via) > 1 else ""
         field, text = "blocks", f"Includes {named(first)} twice{how}. List each block once."
-    elif code == "locked":
-        field = "blocks"
-        text = f"Every agent must include {named(first)}; {id} doesn't."
     elif code == "group_cycle":
         chain = msg.split(":", 1)[-1].strip()
         kind, id, field = "group", chain.split(" ")[0] if chain else id, "blocks"
@@ -562,6 +560,8 @@ def locate(issue: Issue, names: dict[str, str] | None = None) -> Issue:
         kind, id, text = "settings", "settings", "The workspace has no settings yet."
     elif code == "old_format":
         kind, id, text = None, None, OLD_FORMAT_TEXT
+    elif code == "removed_field":
+        text = REMOVED_FIELD_TEXT
     if text:
         text = text[0].upper() + text[1:]
     return Issue(issue.code, issue.message, issue.path, issue.severity, kind=kind, id=id, field=field, index=index, text=text)
