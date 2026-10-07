@@ -1,94 +1,64 @@
+<div align="center">
+
 # 📋🗄️ sopserve
 
-The server for [sopc](https://github.com/amanmibra/sopc). sopc compiles shared instructions and procedures (SOPs) into one full prompt per agent; sopserve stores those files with versions, releases them, and hands each agent its prompt when a call starts, so a change goes live without redeploying the agent.
+**A server and UI for sopc agent instructions.**
 
-Prompts are compiled by the `sopc` binary itself, so what sopserve serves matches `sopc` on the command line byte for byte.
+Edit shared instructions and procedures in a browser, compose each agent from them,<br>
+and publish releases your agents fetch when a call starts. No redeploys.
 
-Status: v0. It currently speaks the sopc v0.0.8 format (the Dockerfile pins it); moving to v0.0.9, where agents compose blocks, is next. **There is no authentication yet**: anyone who can reach sopserve can read and change everything, so run it on a private network only. API keys are on the [roadmap](#roadmap).
+[Why](#why) · [Quickstart](#quickstart) · [How it works](#how-it-works) · [Use it from your agent](#use-it-from-your-agent) · [Git or database](#git-or-database) · [API](#api)
 
-## Two ways to use it
+</div>
 
-**Managed mode.** Everything lives in sopserve's database and is edited in the built-in UI at `/`, or over the `/config` API. The UI is forms: agents (one per location or phone line), shared instructions, procedures and settings. Nobody edits YAML or Markdown. Each item is versioned on its own. Edits are drafts: every save must compile, and problems are shown next to the field they're about, but nothing reaches agents until someone publishes a release. A release is an immutable snapshot of every item at its version plus the compiled prompts, and you can pin, compare or roll back to any release. At call start, the agent asks for its prompt and gets back the release number and the exact versions it was built from, for call metadata.
+---
 
-**Git mode.** The files live in a repo; CI pushes the whole sopc folder on merge with `POST /v1/workspaces/<ws>/publish` (replace + release in one call). Anything edited in sopserve can be exported back with `GET /v1/workspaces/<ws>/files?content=true`.
+## Why
 
-Both modes use the same workspaces, releases and serving endpoints, so you can start in one and move to the other.
+[sopc](https://github.com/amanmibra/sopc) keeps agent instructions in git and compiles one prompt per agent. Some teams would rather keep that config in a database, edit it in a UI, and not trigger a deploy for every wording change. sopserve is that: forms to edit blocks and compose agents, drafts and releases, and an API each agent calls when it starts. It compiles with the sopc binary itself, so its prompts match the CLI byte for byte.
 
-## Run locally
+<p align="center"><img src="docs/images/agent-builder.png" alt="The agent builder: the agent's own text, its blocks as an ordered stack of cards, its variables, and the draft prompt with a diff against the live release" width="900"></p>
 
-Needs the `sopc` binary with `validate --json` and `export` (the release after v0.0.7). Until it ships, build sopc from source and point `SOPC_BIN` at it.
+## Quickstart
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/amanmibra/sopc/main/install.sh | sh   # the sopc compiler
 uv tool install 'sopserve @ git+https://github.com/amanmibra/sopserve'
-SOPC_BIN=/path/to/sopc sopserve --port 8484
+sopserve --port 8484
 ```
 
-Open http://localhost:8484 for the UI, `/docs` for the API, `/openapi.json` for the spec SDKs are generated from.
+Open http://localhost:8484, create a workspace, and add a shared instruction, a procedure and an agent. The API docs are at `/docs`.
+
+With Docker, from a clone: `docker build -t sopserve . && docker run -p 8484:8484 sopserve`. Set `DATABASE_URL` to a Postgres URL in production (Supabase, Neon and RDS all work); without it, the container keeps SQLite in its `/data` volume.
 
 | Variable | Default | |
 |---|---|---|
-| `DATABASE_URL` | `sqlite:///sopserve.db` | Any SQLAlchemy URL. `postgres://…` URLs use psycopg 3 (`pip install 'sopserve[postgres]'`). |
-| `SOPC_BIN` | `sopc` on `PATH` | The sopc binary |
-| `HOST`, `PORT` | `127.0.0.1`, `8484` | Also `--host`, `--port` |
+| `DATABASE_URL` | `sqlite:///sopserve.db` | Any SQLAlchemy URL. `postgres://` URLs use psycopg 3 (`pip install 'sopserve[postgres]'`). |
+| `SOPC_BIN` | `sopc` on `PATH` | The sopc binary, v0.0.9 or later. |
+| `HOST`, `PORT` | `127.0.0.1`, `8484` | Also `--host`, `--port`. |
 
-Tables are created on startup.
+## How it works
 
-## Deploy (Docker + Postgres)
+1. **Write blocks.** Shared instructions are text several agents get (identity, voice, policy). Procedures are step-by-step SOPs. A block doesn't say who uses it.
+2. **Compose agents.** Each agent is its own text, then the blocks it lists, in prompt order. Groups name a set of blocks many agents share.
+3. **Review the diff.** Every save is a draft. Unpublished changes shows what changed in each block and in each agent's prompt.
+4. **Publish a release.** A release is an immutable snapshot of every block plus the compiled prompts.
+5. **Agents fetch their prompt at call start**, with the release and block versions it was built from.
+6. **Roll back anytime** by making an older release live.
 
-```sh
-docker build -t sopserve .            # installs sopc with SOPC_REF (build arg, default v0.0.8)
-docker run -p 8484:8484 \
-  -e DATABASE_URL='postgres://user:pass@host:5432/db' sopserve
-```
-
-Any Postgres works (Supabase, Neon, RDS): paste the connection string as `DATABASE_URL`. Without it the container uses SQLite in the `/data` volume.
-
-## API
-
-Paths below are under `/v1/workspaces/<ws>`. Errors that come from sopc return `422 {"valid": false, "issues": [...]}`. Each issue has sopc's `code`, `message`, `path` and `severity`, plus where it belongs in the forms: `kind` (`agent`, `base`, `procedure` or `settings`), `id`, `field` (as the `/config` endpoints name it, e.g. `steps`), `index` (which entry of a list field) and `text` (the problem in plain words).
-
-### Config: agents, shared instructions, procedures and settings as JSON
-
-What the UI's forms use. Each item is stored as a sopc file (sopserve writes it, then reads it back with `sopc export` to check it holds exactly what was sent), so git mode and exports keep working.
-
-| Endpoint | What it does |
+| | What it is |
 |---|---|
-| `GET …/config` | Every item at head: `{settings, agents, bases, procedures}`, each with its `version` |
-| `GET …/config/agents`, `POST …/config/agents` | List agents; create one (`{id, platform, platform_id, inherits, variables, instructions, exclude, author?, note?}`; 409 if it exists) |
-| `GET/PUT/DELETE …/config/agents/<id>` | One agent; create or replace it; delete it (also removes it from every shared instruction's and procedure's agent lists) |
-| `…/config/bases[/<id>]` | Shared instructions (sopc bases): `{id, text, agents: "*" \| [ids], exclude, inherits, position: top\|bottom, locked}`. Deleting one removes it from every `inherits` |
-| `…/config/procedures[/<id>]` | Procedures (SOPs): `{id, name, goal, when, guidance, steps: [{text, tool, required}], never, warning_signs, agents, exclude, delivery: prompt\|auto\|tool, locked}`. New ones are written as Markdown; one that came from git keeps its format unless Markdown can't hold an edit, then it becomes YAML. Deleting one removes it from skips and the procedure order |
-| `GET/PUT …/config/settings` | `{variables, procedures_heading, procedure_order}` (sopc.yaml) |
-| `GET …/config/<kind>/<id>/history` | Every version, newest first |
-| `GET …/config/<kind>/<id>/versions/<n>` | An older version, as fields |
+| Shared instruction | Prompt text that isn't a procedure. Lock it and every agent must include it. |
+| Procedure | Goal, when it applies, steps (with tools), never-do's, warning signs. |
+| Group | A named, ordered list of blocks. An agent lists it like a block. |
+| Agent | One per voice agent: platform id, its own text, its blocks in order, variables. |
+| Release | What agents are served. Pin one per call for A/B tests. |
 
-Saves are drafts like any other edit; ids can't be renamed yet.
+The Overview page shows every agent against every block, and a click adds or removes one.
 
-### Files, releases and serving
+## Use it from your agent
 
-| Endpoint | What it does |
-|---|---|
-| `GET /v1/workspaces` | List workspaces and their current release |
-| `GET …/files` | Head: every file with its version. `?content=true` includes content (export) |
-| `POST …/files` | `{changes: {path: content \| null}, author?, note?}`: edit or delete files atomically. Rejected if the result doesn't compile |
-| `PUT …/files` | `{files, author?, note?}`: replace head; files not listed are deleted |
-| `GET …/files/<path>?version=N` | A file at head or at a version |
-| `GET …/history/<path>` | Every version of a file |
-| `GET …/draft` | Unpublished changes: files and `items` changed since the current release (each with its fields `before` and `after`), and agents added, changed, removed or unchanged, with the draft and released prompts |
-| `POST …/releases` | `{author?, note?}`: release head and serve it (returns the current release if nothing changed) |
-| `GET …/releases`, `GET …/releases/<n>` | Release history; one release with every agent's prompt |
-| `POST …/releases/<n>/activate` | Serve an older release (roll back) |
-| `POST …/publish` | `{files, author?, note?}`: replace + release in one call, for CI |
-| `GET …/agents` | Agents in the current release (`?release=N` for another) |
-| `GET …/agents/<agent>` | **Call start.** `{agent, platform_ref, release, hash, prompt, tools, tool_sops, components}`. `?release=N` pins a release (A/B). Logs a fetch |
-| `GET …/agents/<agent>/prompt` | Just the prompt as text, with `X-Sopc-Release` and `X-Sopc-Hash`. Logs a fetch |
-| `GET …/agents/<agent>/sops/<id>` | What a `get_sop` tool returns, for SOPs with `delivery: auto` or `tool` |
-| `GET …/fetches?agent=` | Which release and prompt hash each agent was served, newest first |
-| `POST /v1/validate`, `/v1/render`, `/v1/lint` | `{files}`: sopc's checks over HTTP, nothing stored |
-
-`<agent>` is the sopc agent id (`tonys-pizza`) or its platform ref (`livekit:tonys-pizza`). `components` lists each file the prompt was built from at its version (`agent`, `base`, `sop`, plus `sopc.yaml` as `config`). Paths under `build/` in uploads are ignored; absolute paths and `..` are rejected.
-
-## LiveKit: load the prompt at room start
+At room start, fetch the prompt and record what the call ran on:
 
 ```python
 import json, os, httpx
@@ -97,20 +67,29 @@ from livekit.agents import Agent, AgentSession, JobContext
 
 SOPSERVE = os.environ["SOPSERVE_URL"]  # e.g. http://sopserve.internal:8484/v1/workspaces/prod
 
-async def entrypoint(ctx: JobContext):
-    await ctx.connect()
-    params = {"release": pinned} if (pinned := os.environ.get("SOPC_RELEASE")) else {}  # e.g. chosen by your A/B router
-    async with httpx.AsyncClient(timeout=5) as http:
-        res = await http.get(f"{SOPSERVE}/agents/livekit:{ctx.job.agent_name}", params=params)
-        res.raise_for_status()
-        sop = res.json()
 
-    # Record what ran on this call: the release and every component at its version.
+async def fetch_prompt(agent_name: str, release: str | None = None) -> dict:
+    """The agent's compiled prompt, plus the release and component versions it was built from."""
+    params = {"release": release} if release else {}
+    async with httpx.AsyncClient(timeout=5) as http:
+        res = await http.get(f"{SOPSERVE}/agents/livekit:{agent_name}", params=params)
+        res.raise_for_status()
+        return res.json()
+
+
+async def record_versions(room: str, sop: dict) -> None:
+    """Save what this call ran on in the room metadata, so QA can trace it later."""
     async with api.LiveKitAPI() as lk:  # LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
         await lk.room.update_room_metadata(api.UpdateRoomMetadataRequest(
-            room=ctx.room.name,
-            metadata=json.dumps({"sopc": {"release": sop["release"], "hash": sop["hash"], "components": sop["components"]}}),
+            room=room,
+            metadata=json.dumps({"sopc": {k: sop[k] for k in ("release", "hash", "components")}}),
         ))
+
+
+async def entrypoint(ctx: JobContext):
+    await ctx.connect()
+    sop = await fetch_prompt(ctx.job.agent_name, release=os.environ.get("SOPC_RELEASE"))
+    await record_versions(ctx.room.name, sop)
 
     session = AgentSession(...)
     await session.start(room=ctx.room, agent=Agent(instructions=sop["prompt"]))
@@ -118,15 +97,57 @@ async def entrypoint(ctx: JobContext):
 
 For A/B tests, have your router pick a release per call (e.g. 70% current, 30% a candidate) and pass it as `?release=N`; the room metadata and the fetch log record which one ran.
 
-## Roadmap
+## Git or database
 
-- API keys with scopes (read-only keys for agents, write keys for editors and CI), and sign-in for the UI
-- Renaming agents, shared instructions and procedures
-- A webhook on publish, so a release can be synced into your own tables
-- Schema migrations (tables are created on startup today)
+**Database.** Everything lives in sopserve's database and is edited in the UI or over the `/config` API. Nobody edits YAML or Markdown, but each block is still stored as a sopc file and versioned on its own.
 
-## Develop
+**Git.** The sopc folder lives in your repo, and CI publishes it on merge in one call:
 
 ```sh
-uv sync && SOPC_BIN=/path/to/sopc uv run pytest   # sopc with validate --json and export
+python3 -c 'import json,pathlib; r=pathlib.Path("sops"); print(json.dumps({"files": {p.relative_to(r).as_posix(): p.read_text() for p in r.rglob("*") if p.is_file()}}))' \
+  | curl -fsS -X POST -H 'Content-Type: application/json' -d @- "$SOPSERVE_URL/publish"
 ```
+
+`build/` is ignored. A folder in the format of sopc v0.0.8 or earlier is refused with a message to run `sopc migrate`; a workspace stored in that format shows a Convert page in the UI.
+
+You can switch any time: `GET …/files?content=true` exports a workspace as sopc files to commit.
+
+## API
+
+Paths are under `/v1/workspaces/<ws>`. The full spec is at `/openapi.json` (SDKs generate from it), and [API.md](API.md) lists every endpoint.
+
+| Endpoint | What it does |
+|---|---|
+| `GET …/agents/<agent>` | **Call start.** The prompt, release, hash, tools and the components it was built from. `?release=N` pins a release. |
+| `GET …/agents/<agent>/prompt` | Just the prompt text. |
+| `GET …/config` | Every agent, shared instruction, procedure, group and setting, as the forms edit them. |
+| `…/config/{agents,instructions,procedures,groups}[/<id>]` | List, create, read, replace and delete each kind, with history. |
+| `POST …/config/agents/<id>/blocks`, `DELETE …/blocks/<block>` | Add a block at the end of an agent's list, or take one out. |
+| `POST …/config/agents/<id>/preview` | Compile an agent's unsaved fields, without saving. |
+| `GET …/draft` | Unpublished changes: each item before and after, and each agent's prompt diff. |
+| `POST …/releases`, `POST …/releases/<n>/activate` | Publish head; make an older release live. |
+| `POST …/publish` | Replace every file and release, for CI. |
+| `POST …/migrate` | Convert a workspace stored in the sopc v0.0.8 format. |
+
+Errors from sopc come back as `422 {"valid": false, "issues": [...]}`, each issue naming the item and field it's about, in plain words.
+
+## Status
+
+v0. **There is no authentication yet**: anyone who can reach sopserve can read and change everything, so run it on a private network only.
+
+## Roadmap
+
+- API keys with scopes, and sign-in for the UI
+- Renaming agents and blocks
+- A webhook on publish
+- Schema migrations (tables are created on startup today)
+
+## Development
+
+```sh
+uv sync && SOPC_BIN=/path/to/sopc uv run pytest   # sopc v0.0.9 or later
+```
+
+## License
+
+Apache-2.0

@@ -206,11 +206,91 @@
   .empty-state h1 { margin-bottom: 8px; }
   .hidden { display: none !important; }
 
+  /* blocks: type badges, cards, the library */
+  :root { --c-instruction: #2f5fb3; --c-procedure: #7a3fb0; --c-group: #a15c07; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --c-instruction: #86aef2; --c-procedure: #c7a0f2; --c-group: #e6a94f; } }
+  :root[data-theme="dark"] { --c-instruction: #86aef2; --c-procedure: #c7a0f2; --c-group: #e6a94f; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 650; letter-spacing: .02em; text-transform: uppercase; padding: 1px 7px; border-radius: 5px; white-space: nowrap; flex: none; }
+  .b-instruction { color: var(--c-instruction); background: color-mix(in srgb, var(--c-instruction) 13%, transparent); }
+  .b-procedure { color: var(--c-procedure); background: color-mix(in srgb, var(--c-procedure) 13%, transparent); }
+  .b-group { color: var(--c-group); background: color-mix(in srgb, var(--c-group) 15%, transparent); }
+  .b-missing { color: var(--err); background: var(--err-soft); }
+  .lock { font-size: 11px; color: var(--muted); border: 1px solid var(--line-strong); border-radius: 5px; padding: 0 5px; margin-left: 6px; white-space: nowrap; }
+  .lock.big { font-size: 12px; padding: 1px 8px; margin-left: 0; }
+  .stack { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .form > .field { min-width: 0; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+  .card.bad { border-color: var(--err); }
+  .card.dragging { opacity: .5; }
+  .card.drop-before { box-shadow: 0 -3px 0 var(--accent); }
+  .card.drop-after { box-shadow: 0 3px 0 var(--accent); }
+  .card > .ferr { padding: 0 12px 8px 64px; margin: 0; }
+  .card-row { display: flex; align-items: center; gap: 8px; padding: 4px 6px 4px 8px; min-width: 0; }
+  .grip { cursor: grab; color: var(--muted); user-select: none; font-size: 15px; }
+  .pos { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; min-width: 14px; text-align: right; }
+  .card-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 4px; background: none; border: 0; padding: 4px 2px; text-align: left; cursor: pointer; border-radius: 6px; }
+  .card-title:hover b { text-decoration: underline; }
+  .card-title b { white-space: nowrap; }
+  .card-sub { color: var(--muted); font-size: 13px; margin-left: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .card .ops { display: flex; align-items: center; flex: none; }
+  .card-body { padding: 0 12px 12px 64px; }
+  .card-body pre.plain { margin: 0; max-height: 320px; overflow: auto; }
+  ol.members { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+  .library { margin-top: 8px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--panel); padding: 10px; box-shadow: 0 6px 24px rgba(0, 0, 0, .08); }
+  .lib-top { display: flex; gap: 8px; align-items: center; }
+  .lib-results { max-height: 320px; overflow: auto; margin-top: 8px; }
+  .lib-head { font-size: 12px; font-weight: 600; color: var(--muted); padding: 8px 6px 2px; }
+  .lib-item { display: flex; width: 100%; align-items: center; gap: 8px; padding: 6px; background: none; border: 0; border-radius: 6px; cursor: pointer; text-align: left; }
+  .lib-item:hover:not(:disabled) { background: var(--sunk); }
+  .lib-item:disabled { cursor: default; opacity: .55; }
+  .lib-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lib-new { display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--line); margin-top: 8px; padding-top: 10px; }
+  .quick { margin-top: 8px; }
+  .quick label .name { display: block; font-weight: 600; margin-bottom: 2px; }
+  .usedby { margin: -8px 0 18px; color: var(--ink); }
+
+  /* the agent builder */
+  .builder { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  .builder > * { min-width: 0; }
+  .builder .form { grid-template-columns: minmax(0, 1fr); }
+  .builder .side { position: sticky; top: 72px; }
+  .preview pre { max-height: calc(100vh - 170px); }
+  .preview .pad { padding: 12px 14px; }
+  .preview .dv { max-height: calc(100vh - 220px); }
+  .pair3 { display: grid; grid-template-columns: 1fr 160px 1fr; gap: 12px; align-items: end; }
+  .row.vars { grid-template-columns: minmax(120px, 220px) 1fr 28px; }
+  .row.vars .varfrom { grid-column: 2 / -1; margin-top: -4px; }
+  .row.vars .varfrom:empty { display: none; }
+  .varname { overflow: hidden; text-overflow: ellipsis; }
+  .varname code { font-size: 13px; }
+
+  /* overview matrix */
+  .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); width: min(680px, calc(100vw - 32px)); z-index: 20; }
+  .toast .banner { margin: 0; box-shadow: 0 8px 28px rgba(0, 0, 0, .18); border: 1px solid var(--line-strong); }
+  .toast .banner.ok { background: var(--panel); }
+  .matrix-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+  table.matrix { border-collapse: collapse; min-width: 100%; }
+  table.matrix th, table.matrix td { border-bottom: 1px solid var(--line); padding: 0; }
+  table.matrix thead th { position: sticky; top: 0; background: var(--panel); font-size: 13px; font-weight: 600; padding: 10px 8px; text-align: center; white-space: nowrap; }
+  table.matrix tbody th { text-align: left; font-weight: 500; padding: 6px 12px; white-space: nowrap; }
+  table.matrix tr.msec th { background: var(--sunk); color: var(--muted); font-size: 12px; font-weight: 600; padding: 6px 12px; }
+  table.matrix td { text-align: center; border-left: 1px solid var(--line); min-width: 110px; }
+  .cell { width: 100%; min-height: 36px; border: 0; background: none; cursor: pointer; color: var(--accent); font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .cell:hover { background: var(--sunk); }
+  .cell.on { background: var(--accent-soft); }
+  .cell.via { color: var(--muted); font-weight: 600; font-size: 14px; }
+  .cell.via small { font-size: 11px; font-weight: 500; }
+  .cell:not(.on):not(.via):hover::after { content: "+"; color: var(--muted); }
+
+  @media (max-width: 1180px) {
+    .builder { grid-template-columns: minmax(0, 1fr); }
+    .builder .side { position: static; }
+  }
   @media (max-width: 860px) {
     .shell { grid-template-columns: 1fr; }
     nav.rail { border-right: 0; border-bottom: 1px solid var(--line); position: static; height: auto; }
     main { padding: 18px 16px 40px; }
-    .compare, .pair, .history { grid-template-columns: 1fr; }
+    .compare, .pair, .pair3, .history { grid-template-columns: 1fr; }
     .row.steps { grid-template-columns: 22px 1fr auto; }
     .row.items { grid-template-columns: 1fr auto; }
     .row.steps .tool, .row.items .tool { grid-column: 2 / 3; }
@@ -263,10 +343,12 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 const KIND = {
   agent: { one: "Agent", many: "Agents", route: "agents", list: "agents", api: "agents" },
-  base: { one: "Shared instruction", many: "Shared instructions", route: "shared", list: "bases", api: "bases" },
-  procedure: { one: "Procedure", many: "Procedures", route: "procedures", list: "procedures", api: "procedures" },
+  instruction: { one: "Shared instruction", many: "Shared instructions", route: "instructions", list: "instructions", api: "instructions", badge: "instruction" },
+  procedure: { one: "Procedure", many: "Procedures", route: "procedures", list: "procedures", api: "procedures", badge: "procedure" },
+  group: { one: "Group", many: "Groups", route: "groups", list: "groups", api: "groups", badge: "group" },
   settings: { one: "Settings", many: "Settings", route: "settings", list: null, api: null },
 };
+const BLOCK_KINDS = ["group", "instruction", "procedure"];
 const PLATFORMS = [["livekit", "LiveKit", "Agent name"], ["vapi", "Vapi", "Assistant ID"], ["elevenlabs", "ElevenLabs", "Agent ID"], ["retell", "Retell", "Agent ID"]];
 const platformName = (p) => (PLATFORMS.find((x) => x[0] === p) || [p, p])[1];
 const DELIVERY = [
@@ -274,10 +356,12 @@ const DELIVERY = [
   ["auto", "Rules in the prompt, steps on request", "The name, when it applies, never and warning signs stay in the prompt. The goal, guidance and steps are fetched with the agent's get_sop tool."],
   ["tool", "Only the name in the prompt, the rest on request", "The prompt names the procedure and when it applies. Everything else is fetched with the agent's get_sop tool."],
 ];
+const LOCK_HELP = "Every agent must include it, directly or through a group. Saving fails if one doesn't.";
 
 // ---------------------------------------------------------------------------------
 // state and API
-const S = { ws: local.get("sopserve.ws") || "", workspaces: [], cfg: null, draft: null, releases: [], releaseCache: {}, form: null, flash: null };
+const S = { ws: local.get("sopserve.ws") || "", workspaces: [], cfg: null, draft: null, releases: [], releaseCache: {}, form: null, flash: null, legacy: null };
+const EMPTY_CFG = { settings: { variables: {}, procedures_heading: "## Procedures" }, agents: [], instructions: [], procedures: [], groups: [] };
 
 async function api(method, path, body) {
   const res = await fetch(path, { method, headers: { "Content-Type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -293,8 +377,14 @@ const wsUrl = (p = "") => `/v1/workspaces/${encodeURIComponent(S.ws)}${p}`;
 const author = () => $("author").value.trim() || null;
 
 async function loadAll() {
-  const [cfg, draft, releases] = await Promise.all([api("GET", wsUrl("/config")), api("GET", wsUrl("/draft")), api("GET", wsUrl("/releases"))]);
-  S.cfg = cfg; S.draft = draft; S.releases = releases;
+  const [cfg, draft, releases] = await Promise.all([
+    api("GET", wsUrl("/config")).catch((e) => {
+      if (e.status === 422 && ((e.data && e.data.issues) || []).some((i) => i.code === "old_format")) return null;
+      throw e;
+    }),
+    api("GET", wsUrl("/draft")), api("GET", wsUrl("/releases"))]);
+  S.legacy = cfg === null;
+  S.cfg = cfg || clone(EMPTY_CFG); S.draft = draft; S.releases = releases;
 }
 async function liveRelease() {
   const n = S.draft && S.draft.release;
@@ -302,19 +392,55 @@ async function liveRelease() {
   if (!S.releaseCache[n]) S.releaseCache[n] = await api("GET", wsUrl(`/releases/${n}`));
   return S.releaseCache[n];
 }
+// What kind a block id is: "instruction", "procedure", "group", or null if nothing has that name.
+function blockKind(id) {
+  for (const k of BLOCK_KINDS) if (S.cfg[KIND[k].list].some((x) => x.id === id)) return k;
+  return null;
+}
+const findItem = (kind, id) => kind === "settings" ? S.cfg.settings : (S.cfg[KIND[kind].list] || []).find((x) => x.id === id);
 function itemName(kind, id) {
   if (kind === "settings" || kind === "config") return "Settings";
   if (kind === "procedure" || kind === "sop") { const p = S.cfg && S.cfg.procedures.find((x) => x.id === id); return p ? p.name : id; }
   return id;
 }
+const blockName = (id) => itemName(blockKind(id) || "instruction", id);
 const itemHref = (kind, id) => kind === "settings" ? "#/settings" : `#/${KIND[kind].route}/${encodeURIComponent(id)}`;
 const changeOf = (kind, id) => S.draft && S.draft.items.find((i) => i.kind === kind && i.id === id);
-const kindOfComponent = (k) => ({ agent: "agent", base: "base", sop: "procedure", config: "settings" }[k]);
+const kindOfComponent = (k) => ({ agent: "agent", instruction: "instruction", base: "instruction", sop: "procedure", config: "settings" }[k]);
+
+// An agent's blocks with groups expanded: [{id, via}] (via: the group the agent lists, or null).
+function expandBlocks(blocks, via = null, seen = new Set()) {
+  const out = [];
+  for (const b of blocks) {
+    const g = S.cfg.groups.find((x) => x.id === b);
+    if (g) { if (!seen.has(b)) out.push(...expandBlocks(g.blocks, via || b, new Set([...seen, b]))); }
+    else out.push({ id: b, via });
+  }
+  return out;
+}
+// Every {{placeholder}} in some text.
+const placeholders = (t) => [...String(t || "").matchAll(/\{\{\s*([A-Za-z0-9_.-]+)\s*\}\}/g)].map((m) => m[1]);
+function blockText(id) {
+  const k = blockKind(id), it = k && findItem(k, id);
+  if (!it) return "";
+  if (k === "instruction") return it.text;
+  if (k === "procedure") return [it.name, it.goal, it.when, it.guidance, ...[...it.steps, ...it.never, ...it.warning_signs].map((s) => s.text)].join("\n");
+  return "";
+}
+// Variables an agent's context and blocks use, with the blocks that use each: [[name, [ids]]].
+function neededVariables(model) {
+  const need = new Map();
+  const add = (name, from) => { if (!need.has(name)) need.set(name, []); if (!need.get(name).includes(from)) need.get(name).push(from); };
+  placeholders(model.context).forEach((n) => add(n, "About this agent"));
+  for (const { id } of expandBlocks(model.blocks)) placeholders(blockText(id)).forEach((n) => add(n, blockName(id)));
+  return [...need.entries()];
+}
 
 // ---------------------------------------------------------------------------------
-// routing: #/agents/<id>[/prompt|/history], #/shared/<id>, #/procedures/<id>, #/settings, #/changes, #/releases/<n>
+// routing: #/overview, #/agents/<id>[/prompt|/history], #/instructions/<id>, #/procedures/<id>, #/groups/<id>, #/settings, #/changes, #/releases/<n>
 function route() {
   const parts = location.hash.replace(/^#\/?/, "").split("/").map(decodeURIComponent);
+  if (parts[0] === "shared") parts[0] = "instructions"; // links from before groups
   return { section: parts[0] || "", id: parts[1] || "", tab: parts[2] || "" };
 }
 function go(...parts) {
@@ -350,7 +476,7 @@ function renderTop() {
 function renderRail() {
   const r = route();
   if (!S.cfg) { $("rail").replaceChildren(); return; }
-  const cur = "#/" + r.section + (r.id && !["settings", "releases"].includes(r.section) ? "/" + encodeURIComponent(r.id) : "");
+  const cur = "#/" + r.section + (r.id && !["settings", "releases", "overview"].includes(r.section) ? "/" + encodeURIComponent(r.id) : "");
   const link = (href, label, kind, id, extra) => {
     const c = kind && changeOf(kind, id);
     return el("a", { class: "item" + (href === cur ? " active" : ""), href, "aria-current": href === cur ? "page" : null },
@@ -359,11 +485,15 @@ function renderRail() {
   const group = (kind, items) => el("div", { class: "rail-group" },
     el("div", { class: "rail-head" }, el("h2", {}, el("a", { href: `#/${KIND[kind].route}`, style: "color:inherit;text-decoration:none" }, KIND[kind].many)),
       el("button", { class: "btn small ghost", onclick: () => go(KIND[kind].route, "new"), "aria-label": `New ${KIND[kind].one.toLowerCase()}` }, "+ New")),
-    items.length ? items.map((it) => link(itemHref(kind, it.id), kind === "procedure" ? it.name : it.id, kind, it.id)) : el("div", { class: "empty" }, "None yet"));
+    items.length ? items.map((it) => link(itemHref(kind, it.id), kind === "procedure" ? it.name : it.id, kind, it.id,
+      it.locked ? el("span", { class: "lock", title: "Locked: every agent includes it" }, "locked") : "")) : el("div", { class: "empty" }, "None yet"));
+  if (S.legacy) return $("rail").replaceChildren(el("div", { class: "rail-group" }, link("#/releases", "Releases")));
   $("rail").replaceChildren(
+    el("div", { class: "rail-group" }, link("#/overview", "Overview")),
     group("agent", S.cfg.agents),
-    group("base", S.cfg.bases),
+    group("instruction", S.cfg.instructions),
     group("procedure", [...S.cfg.procedures].sort((a, b) => a.name.localeCompare(b.name))),
+    group("group", S.cfg.groups),
     el("div", { class: "rail-group" },
       link("#/settings", "Settings", "settings", "settings"),
       link("#/releases", "Releases", null, null, S.draft && S.draft.release ? el("span", { class: "tag live" }, `#${S.draft.release} live`) : "")));
@@ -380,9 +510,12 @@ function render() {
   renderTop(); renderRail();
   const r = route();
   S.form = null;
+  if (S.legacy && !["releases"].includes(r.section)) return migratePage();
+  if (r.section === "overview") return matrixPage();
   if (r.section === "agents") return r.id ? agentPage(r.id, r.tab) : listPage("agent");
-  if (r.section === "shared") return r.id ? basePage(r.id, r.tab) : listPage("base");
+  if (r.section === "instructions") return r.id ? instructionPage(r.id, r.tab) : listPage("instruction");
   if (r.section === "procedures") return r.id ? procedurePage(r.id, r.tab) : listPage("procedure");
+  if (r.section === "groups") return r.id ? groupPage(r.id, r.tab) : listPage("group");
   if (r.section === "settings") return settingsPage(r.id);
   if (r.section === "releases") return r.id ? releasePage(+r.id) : releasesPage();
   if (r.section === "changes") return changesPage();
@@ -404,10 +537,13 @@ function errorBanner(e, lead = "This change can't be saved yet:") {
 // ---------------------------------------------------------------------------------
 // forms
 function makeForm(kind, id, model, isNew) {
-  S.form = { kind, id, model, isNew, dirty: false, hash: location.hash, errors: [], rerender: null };
+  S.form = { kind, id, model, isNew, dirty: false, hash: location.hash, errors: [], rerender: null, onChange: [] };
   return S.form;
 }
-function touch(f) { f.dirty = true; const s = $("save-state"); if (s) s.textContent = "Unsaved edits"; }
+function touch(f) {
+  f.dirty = true; const s = $("save-state"); if (s) s.textContent = "Unsaved edits";
+  for (const fn of f.onChange || []) fn();
+}
 const errsFor = (f, key, index) => f.errors.filter((i) => i.field === key && (index === undefined ? i.index === null || i.index === undefined : i.index === index));
 const errNodes = (f, key, index) => errsFor(f, key, index).map((i) => el("div", { class: i.severity === "warning" ? "fwarn" : "ferr" }, i.text || i.message));
 
@@ -431,29 +567,6 @@ function choose(f, key, options, after) {
     options.map(([v, label]) => el("option", { value: v, selected: f.model[key] === v }, label)));
 }
 
-// Chosen values as chips (or an ordered list), and a menu to add more.
-function picker(f, key, options, { ordered = false, empty = "None", id } = {}) {
-  const box = el("div", { class: "picker", id: id || `f-${key}` });
-  const draw = () => {
-    const values = f.model[key];
-    const label = (v) => { const o = options.find((x) => x.value === v); return o ? o.label : v; };
-    const hint = (v) => { const o = options.find((x) => x.value === v); return o && o.hint; };
-    const move = (i, d) => { values.splice(i + d, 0, values.splice(i, 1)[0]); touch(f); draw(); };
-    const rest = options.filter((o) => !values.includes(o.value));
-    box.replaceChildren(
-      values.length ? el("div", { class: "picked" + (ordered ? " ordered" : "") }, values.map((v, i) => el("span", { class: "chip" },
-        el("span", {}, label(v), hint(v) ? el("span", { class: "muted" }, hint(v)) : ""),
-        el("span", {},
-          ordered ? el("button", { class: "btn icon-btn x", type: "button", disabled: i === 0, "aria-label": `Move ${label(v)} up`, onclick: () => move(i, -1) }, "↑") : "",
-          ordered ? el("button", { class: "btn icon-btn x", type: "button", disabled: i === values.length - 1, "aria-label": `Move ${label(v)} down`, onclick: () => move(i, 1) }, "↓") : "",
-          el("button", { class: "btn icon-btn x", type: "button", "aria-label": `Remove ${label(v)}`, onclick: () => { values.splice(i, 1); touch(f); draw(); } }, "×"))))) : el("div", { class: "note" }, empty),
-      rest.length ? el("select", { "aria-label": "Add", onchange: (e) => { if (e.target.value) { values.push(e.target.value); touch(f); draw(); } } },
-        el("option", { value: "" }, "Add…"), rest.map((o) => el("option", { value: o.value, disabled: !!o.disabled }, o.label + (o.hint ? ` (${o.hint})` : "")))) : "");
-  };
-  draw();
-  return box;
-}
-
 // Name/value rows. Rows keep their own order and blanks while editing; the model is rebuilt from them.
 function varRows(f, key, placeholder) {
   const box = el("div", { id: `f-${key}` });
@@ -472,6 +585,47 @@ function varRows(f, key, placeholder) {
       })),
       el("button", { class: "btn small addrow", type: "button", onclick: () => { rows.push({ k: "", v: "" }); draw(); box.querySelector(".row:last-child input").focus(); } }, "+ Add variable"));
   };
+  draw();
+  return box;
+}
+
+// An agent's variables: the ones its blocks need come first (unset ones highlighted), then any others it sets.
+function agentVars(f) {
+  const box = el("div", { id: "f-variables" });
+  const defaults = S.cfg.settings.variables;
+  let rows = Object.entries(f.model.variables || {}).map(([k, v]) => ({ k, v, fixed: false }));
+  const sync = () => {
+    const out = {};
+    rows.forEach((r) => { const k = r.k.trim(); if (k && !(r.fixed && r.v === "")) out[k] = r.v; });
+    f.model.variables = out; touch(f);
+  };
+  const draw = () => {
+    const need = new Map(neededVariables(f.model));
+    // Needed names without a row get one, fixed to that name; fixed rows nobody needs any more go away.
+    rows = rows.filter((r) => !r.fixed || need.has(r.k) || r.v !== "");
+    for (const name of need.keys()) if (!rows.some((r) => r.k.trim() === name)) rows.push({ k: name, v: "", fixed: true });
+    const order = (r) => (need.has(r.k.trim()) ? [...need.keys()].indexOf(r.k.trim()) : 1e6);
+    rows.sort((a, b) => order(a) - order(b));
+    const names = rows.map((r) => r.k.trim());
+    const unset = rows.filter((r) => need.has(r.k.trim()) && r.v === "" && !(r.k.trim() in defaults));
+    box.replaceChildren(
+      unset.length ? el("div", { class: "fwarn", style: "margin:0 0 8px" }, `${plural(unset.length, "variable needs", "variables need")} a value: the prompt can't be built without ${unset.length === 1 ? "it" : "them"}.`) : "",
+      el("div", { class: "rows" }, rows.map((r, i) => {
+        const name = r.k.trim();
+        const from = need.get(name);
+        const missing = from && r.v === "" && !(name in defaults);
+        const dup = name && names.indexOf(name) !== i;
+        return el("div", { class: "row vars" + (missing || dup ? " bad" : "") },
+          r.fixed ? el("span", { class: "varname" }, el("code", {}, `{{${name}}}`)) : el("input", { value: r.k, placeholder: "name", "aria-label": "Variable name", oninput: (e) => { r.k = e.target.value; sync(); } }),
+          el("input", { value: r.v, placeholder: name in defaults ? `Default: ${defaults[name]}` : missing ? "Needs a value" : "value", "aria-label": `Value of ${name || "variable"}`,
+            oninput: (e) => { r.v = e.target.value; sync(); const row = e.target.closest(".row"); row.classList.toggle("bad", !!from && r.v === "" && !(name in defaults)); } }),
+          r.fixed ? el("span") : el("button", { class: "btn icon-btn", type: "button", "aria-label": `Remove ${name || "variable"}`, onclick: () => { rows.splice(i, 1); sync(); draw(); } }, "×"),
+          el("div", { class: "note varfrom" }, from ? `Used by ${from.join(", ")}` : name ? "No block uses it" : ""),
+          dup ? el("div", { class: "ferr" }, "This name is used twice; the last value wins.") : "");
+      })),
+      el("button", { class: "btn small addrow", type: "button", onclick: () => { rows.push({ k: "", v: "", fixed: false }); draw(); box.querySelector(".row:last-of-type input").focus(); } }, "+ Add variable"));
+  };
+  f.redrawVars = draw;
   draw();
   return box;
 }
@@ -502,33 +656,129 @@ function stepRows(f, key, { steps = false, placeholder, noun }) {
   return box;
 }
 
-// Who a shared instruction or procedure applies to. For shared instructions an empty list means
-// "agents that include it", so "Specific agents" is a mode kept while editing.
-function audience(f, { base }) {
-  const box = el("div", { id: "f-agents" });
-  let mode = f.model.agents === "*" ? "all" : f.model.agents.length || !base ? "some" : "inherit";
-  const opts = () => S.cfg.agents.map((a) => ({ value: a.id, label: a.id }));
+// --- blocks: a stack of cards to order, read, open and remove, and a library to add from
+const badge = (kind) => kind ? el("span", { class: `badge b-${kind}` }, KIND[kind].badge) : el("span", { class: "badge b-missing" }, "missing");
+function blockPreview(id) {
+  const kind = blockKind(id), it = kind && findItem(kind, id);
+  if (!it) return el("p", { class: "note" }, "Nothing has this name. Remove it, or create it.");
+  if (kind === "instruction") return el("pre", { class: "plain" }, it.text);
+  if (kind === "procedure") return el("pre", { class: "plain" }, readable("procedure", it).join("\n"));
+  return el("ol", { class: "members" }, it.blocks.map((b) => el("li", {}, badge(blockKind(b)), " ", el("a", { href: itemHref(blockKind(b) || "instruction", b) }, blockName(b)))));
+}
+
+function blockStack(f, key, { owner } = {}) {
+  const box = el("div", { class: "stack-wrap", id: `f-${key}` });
+  const open = new Set();
+  let dragFrom = null, adding = false, quick = null;
+  const changed = () => { touch(f); draw(); };
+  const move = (from, to) => { const list = f.model[key]; if (to < 0 || to >= list.length || from === to) return; list.splice(to, 0, list.splice(from, 1)[0]); changed(); };
+  const card = (id, i, list) => {
+    const kind = blockKind(id), it = kind && findItem(kind, id);
+    const sub = kind === "group" ? plural(it.blocks.length, "block", "blocks") : kind === "procedure" ? plural(it.steps.length, "step", "steps") : kind === "instruction" ? (it.text.split(/\s+/).slice(0, 12).join(" ") + (it.text.split(/\s+/).length > 12 ? "…" : "")) : "";
+    const isOpen = open.has(id);
+    const li = el("li", { class: "card" + (errsFor(f, key, i).length ? " bad" : ""), draggable: "true", "data-i": i,
+      ondragstart: (e) => { dragFrom = i; li.classList.add("dragging"); e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", id); },
+      ondragend: () => { dragFrom = null; li.classList.remove("dragging"); box.querySelectorAll(".drop-before,.drop-after").forEach((n) => n.classList.remove("drop-before", "drop-after")); },
+      ondragover: (e) => { if (dragFrom === null) return; e.preventDefault(); const after = e.offsetY > li.offsetHeight / 2; li.classList.toggle("drop-after", after); li.classList.toggle("drop-before", !after); },
+      ondragleave: () => li.classList.remove("drop-before", "drop-after"),
+      ondrop: (e) => { e.preventDefault(); if (dragFrom === null) return; const after = li.classList.contains("drop-after"); let to = i + (after ? 1 : 0); if (dragFrom < to) to--; move(dragFrom, to); } },
+      el("div", { class: "card-row" },
+        el("span", { class: "grip", "aria-hidden": "true", title: "Drag to reorder" }, "⠿"),
+        el("span", { class: "pos" }, `${i + 1}`),
+        badge(kind),
+        el("button", { class: "card-title", type: "button", "aria-expanded": String(isOpen), onclick: () => { isOpen ? open.delete(id) : open.add(id); draw(); } },
+          el("b", {}, kind ? blockName(id) : id), it && it.locked ? el("span", { class: "lock" }, "locked") : "", el("span", { class: "card-sub" }, sub)),
+        el("span", { class: "ops" },
+          kind ? el("a", { class: "btn small ghost", href: itemHref(kind, id), title: `Open ${blockName(id)} to edit it` }, "Open") : "",
+          el("button", { class: "btn icon-btn", type: "button", disabled: i === 0, "aria-label": `Move ${blockName(id)} up`, onclick: () => move(i, i - 1) }, "↑"),
+          el("button", { class: "btn icon-btn", type: "button", disabled: i === list.length - 1, "aria-label": `Move ${blockName(id)} down`, onclick: () => move(i, i + 1) }, "↓"),
+          el("button", { class: "btn icon-btn", type: "button", "aria-label": `Remove ${blockName(id)}`, title: it && it.locked ? "Locked: every agent must include it" : "Remove", onclick: () => { list.splice(i, 1); changed(); } }, "×"))),
+      errNodes(f, key, i),
+      isOpen ? el("div", { class: "card-body" }, blockPreview(id)) : "");
+    return li;
+  };
+  const library = () => {
+    const list = f.model[key];
+    const inList = new Map(expandBlocks(list).map((x) => [x.id, x.via]));
+    list.forEach((b) => inList.set(b, null));
+    const search = el("input", { type: "text", placeholder: "Search shared instructions, procedures and groups", "aria-label": "Search blocks" });
+    const results = el("div", { class: "lib-results", role: "list" });
+    const fill = () => {
+      const q = search.value.trim().toLowerCase();
+      const sections = BLOCK_KINDS.map((k) => {
+        const items = S.cfg[KIND[k].list].filter((x) => x.id !== owner && (!q || x.id.toLowerCase().includes(q) || (x.name || "").toLowerCase().includes(q) || (k === "instruction" && x.text.toLowerCase().includes(q))));
+        if (!items.length) return "";
+        return el("div", { class: "lib-section" }, el("div", { class: "lib-head" }, KIND[k].many),
+          items.map((x) => {
+            const there = inList.has(x.id);
+            const why = there ? (inList.get(x.id) ? `in ${inList.get(x.id)}` : "already listed") : "";
+            return el("button", { class: "lib-item", type: "button", role: "listitem", disabled: there, onclick: () => { list.push(x.id); adding = false; changed(); } },
+              badge(k), el("span", { class: "lib-name" }, itemName(k, x.id)), x.locked ? el("span", { class: "lock" }, "locked") : "", el("span", { class: "note" }, why || (x.used_by ? `${plural(x.used_by.length, "agent", "agents")}` : "")));
+          }));
+      });
+      results.replaceChildren(...sections.filter(Boolean).length ? sections : [el("p", { class: "note" }, q ? "Nothing matches." : "Nothing to add yet. Create a block below.")]);
+    };
+    search.addEventListener("input", fill);
+    search.addEventListener("keydown", (e) => { if (e.key === "Escape") { adding = false; draw(); } });
+    fill();
+    setTimeout(() => search.focus(), 0);
+    return el("div", { class: "library", role: "dialog", "aria-label": "Add a block" },
+      el("div", { class: "lib-top" }, search, el("button", { class: "btn small ghost", type: "button", onclick: () => { adding = false; draw(); } }, "Close")),
+      results,
+      el("div", { class: "lib-new" },
+        el("button", { class: "btn small", type: "button", onclick: () => { quick = "instruction"; adding = false; draw(); } }, "+ New shared instruction"),
+        el("button", { class: "btn small", type: "button", onclick: () => { quick = "procedure"; adding = false; draw(); } }, "+ New procedure")));
+  };
+  const quickForm = () => {
+    const isProc = quick === "procedure";
+    const name = el("input", { type: "text", placeholder: isProc ? "Takeout" : "hours", "aria-label": "Name" });
+    const text = el("textarea", { placeholder: isProc ? "One step per line" : "What the agents are told", "aria-label": isProc ? "Steps, one per line" : "Text" });
+    const goal = isProc ? el("input", { type: "text", placeholder: "The order is placed with a pickup time.", "aria-label": "Goal" }) : null;
+    const msg = el("div");
+    const create = async () => {
+      const id = isProc ? slug(name.value) : name.value.trim();
+      const body = isProc
+        ? { id, name: name.value.trim(), goal: goal.value.trim(), steps: text.value.split("\n").map((t) => t.trim()).filter(Boolean).map((t) => ({ text: t })), author: author() }
+        : { id, text: text.value, locked: false, author: author() };
+      try {
+        await api("POST", wsUrl(`/config/${KIND[quick].api}`), body);
+        const cfg = await api("GET", wsUrl("/config")); S.cfg = cfg;
+        api("GET", wsUrl("/draft")).then((d) => { S.draft = d; renderTop(); renderRail(); });
+        f.model[key].push(id); quick = null; changed();
+      } catch (e) {
+        const issues = (e.data && e.data.issues) || [];
+        msg.replaceChildren(el("div", { class: "ferr" }, issues.length ? issues.map((i) => i.text || i.message).join(" ") : e.message));
+      }
+    };
+    return el("div", { class: "quick panel" },
+      el("h3", { class: "minor", style: "margin-top:0" }, isProc ? "New procedure" : "New shared instruction"),
+      el("p", { class: "help" }, isProc ? "Saved as a draft and added to this list. Open it afterwards to add never-do's, warning signs and tools." : "Saved as a draft and added to this list."),
+      el("div", { class: "form", style: "gap:10px" },
+        el("label", {}, el("span", { class: "name" }, "Name"), name),
+        goal ? el("label", {}, el("span", { class: "name" }, "Goal"), goal) : "",
+        el("label", {}, el("span", { class: "name" }, isProc ? "Steps" : "Text"), text)),
+      msg,
+      el("div", { style: "display:flex;gap:8px;margin-top:10px" },
+        el("button", { class: "btn primary small", type: "button", onclick: create }, "Create and add"),
+        el("button", { class: "btn small ghost", type: "button", onclick: () => { quick = null; draw(); } }, "Cancel")));
+  };
   const draw = () => {
-    const choices = base ? [["inherit", "Agents that include it"], ["all", "All agents"], ["some", "Specific agents"]] : [["all", "All agents"], ["some", "Specific agents"]];
-    const help = {
-      inherit: "Only agents that list it under their shared instructions get it.",
-      all: "Every agent gets it, including agents added later.",
-      some: base ? "These agents get it, as well as any agent that lists it under its shared instructions." : "Only these agents follow it.",
-    }[mode];
+    const list = f.model[key];
     box.replaceChildren(
-      el("div", { class: "seg", role: "group", "aria-label": "Applies to" }, choices.map(([v, label]) => el("button", { type: "button", "aria-pressed": String(mode === v), onclick: () => {
-        mode = v;
-        f.model.agents = v === "all" ? "*" : v === "some" && Array.isArray(f.model.agents) ? f.model.agents : [];
-        if (v === "inherit") f.model.exclude = [];
-        touch(f); draw();
-      } }, label))),
-      el("p", { class: "help", style: "margin:8px 0" }, help),
-      mode === "some" ? picker(f, "agents", opts(), { empty: "No agents chosen yet.", id: "f-agents-list" }) : "",
-      mode !== "inherit" ? el("div", { style: "margin-top:12px" }, el("div", { class: "note", style: "margin-bottom:6px" }, "Except"),
-        picker(f, "exclude", opts(), { empty: "No exceptions.", id: "f-exclude" }), errNodes(f, "exclude")) : "");
+      list.length ? el("ol", { class: "stack", "aria-label": "Blocks, in prompt order" }, list.map((id, i) => card(id, i, list))) : el("p", { class: "note" }, "No blocks yet."),
+      adding ? library() : quick ? quickForm() : el("button", { class: "btn small addrow", type: "button", onclick: () => { adding = true; draw(); } }, "+ Add block"));
+    for (const fn of f.onBlocks || []) fn();
   };
   draw();
   return box;
+}
+
+function usedByNote(kind, item) {
+  const uses = item.used_by || [];
+  const agents = [...new Set(uses.map((u) => u.agent))];
+  return el("div", { class: "usedby" }, el("b", {}, "Used by: "), agents.length ? [plural(agents.length, "agent", "agents"), " — ",
+    agents.map((a, i) => { const via = uses.filter((u) => u.agent === a && u.via).map((u) => u.via); return [i ? ", " : "", el("a", { href: itemHref("agent", a) }, a), via.length ? el("span", { class: "note" }, ` (through ${via.join(", ")})`) : ""]; })]
+    : el("span", { class: "muted" }, kind === "group" ? "no agent yet. Add it to an agent's blocks." : "no agent yet. Add it to an agent's blocks or to a group."));
 }
 
 // Two clicks instead of a browser confirm dialog.
@@ -572,7 +822,7 @@ async function saveItem(f, data, note) {
     f.dirty = false;
     S.flash = { type: "ok", text: res.changed.length ? (f.isNew ? "Created as a draft. Publish to send it to agents." : "Saved as a draft. Publish to send it to agents.") : "Nothing changed." };
     await loadAll();
-    if (f.kind === "settings") go("settings"); else go(KIND[f.kind].route, res.item.id);
+    if (f.kind === "settings") go("settings"); else go(KIND[f.kind].route, id);
   } catch (e) {
     const issues = (e.data && e.data.issues) || [];
     f.errors = issues.filter((i) => (i.kind === f.kind && (f.kind === "settings" || i.id === id)) || (!i.kind && i.field === "id"));
@@ -580,16 +830,17 @@ async function saveItem(f, data, note) {
     f.rerender(others.length || !issues.length
       ? errorBanner(others.length ? { data: { issues: others } } : e, f.errors.length ? "Fix the highlighted fields. This change also causes problems elsewhere:" : "This change can't be saved, because:")
       : el("div", { class: "banner err", role: "alert" }, "Fix the highlighted fields, then save again."));
-    const first = document.querySelector(".field.bad, .row.bad, .ferr");
+    const first = document.querySelector(".field.bad, .row.bad, .card.bad, .ferr");
     if (first) first.scrollIntoView({ block: "center" });
   }
 }
 async function deleteItem(f) {
+  const what = { instruction: "and took it out of every agent and group that listed it", procedure: "and took it out of every agent and group that listed it", group: "and listed its blocks in its place wherever it was used, so no prompt changes", agent: "" }[f.kind];
   try {
     const a = author();
     await api("DELETE", wsUrl(`/config/${KIND[f.kind].api}/${encodeURIComponent(f.id)}${a ? `?author=${encodeURIComponent(a)}` : ""}`));
     f.dirty = false;
-    S.flash = { type: "ok", text: `Deleted ${itemName(f.kind, f.id)} in the draft, and removed it from everything that named it. Publish to make it final.` };
+    S.flash = { type: "ok", text: `Deleted ${itemName(f.kind, f.id)} in the draft${what ? `, ${what}` : ""}. Publish to make it final.` };
     await loadAll();
     go(KIND[f.kind].route);
   } catch (e) { f.rerender(errorBanner(e, "It can't be deleted yet:")); }
@@ -597,25 +848,17 @@ async function deleteItem(f) {
 
 function header(kind, id, title, tab) {
   const c = changeOf(kind, id);
-  const tabs = kind === "agent" ? [["", "Setup"], ["prompt", "Prompt"], ["history", "History"]] : [["", "Setup"], ["history", "History"]];
+  const tabs = kind === "agent" ? [["", "Builder"], ["prompt", "Prompt"], ["history", "History"]] : [["", "Setup"], ["history", "History"]];
   const base = itemHref(kind, id);
+  const it = kind !== "settings" && findItem(kind, id);
   return [
     kind === "settings" ? "" : el("div", { class: "crumb" }, el("a", { href: `#/${KIND[kind].route}` }, KIND[kind].many)),
-    el("div", { class: "title-row" }, el("h1", {}, title), c ? el("span", { class: "tag " + c.change }, `${c.change}, not published`) : ""),
+    el("div", { class: "title-row" }, KIND[kind].badge ? badge(kind) : "", el("h1", {}, title), it && it.locked ? el("span", { class: "lock big" }, "locked") : "", c ? el("span", { class: "tag " + c.change }, `${c.change}, not published`) : ""),
     el("nav", { class: "tabs" }, tabs.map(([t, label]) => el("a", { href: t ? `${base}/${t}` : base, class: tab === t ? "on" : "", "aria-current": tab === t ? "page" : null }, label))),
   ];
 }
 function newHeader(kind) {
   return [el("div", { class: "crumb" }, el("a", { href: `#/${KIND[kind].route}` }, KIND[kind].many)), el("h1", { style: "margin-bottom:20px" }, `New ${KIND[kind].one.toLowerCase()}`)];
-}
-// Which agents a shared instruction or procedure reaches, from the draft build.
-function reach(kind, id) {
-  const ck = kind === "base" ? "base" : "sop";
-  return (S.draft.agents || []).filter((a) => a.prompt !== null && a.components.some((c) => c.kind === ck && c.id === id)).map((a) => a.agent);
-}
-function reachNote(kind, id) {
-  const r = reach(kind, id);
-  return el("p", { class: "sub", style: "margin-top:-8px" }, r.length ? `In the draft, ${plural(r.length, "agent gets", "agents get")} it: ${r.join(", ")}.` : "In the draft, no agent gets it.");
 }
 function missing(kind, id) {
   page(false, el("div", { class: "banner err" }, `There's no ${KIND[kind].one.toLowerCase()} called ${id}.`), el("a", { href: `#/${KIND[kind].route}` }, `All ${KIND[kind].many.toLowerCase()}`));
@@ -625,24 +868,51 @@ function missing(kind, id) {
 // pages
 function homePage() {
   if (!S.ws) return page(false, el("div", { class: "empty-state" }, el("h1", {}, "Create a workspace"),
-    el("p", {}, "A workspace holds your agents with their shared instructions and procedures. Use New workspace at the top to start one.")));
-  if (!S.cfg.agents.length && !S.cfg.bases.length && !S.cfg.procedures.length) return page(false, el("div", { class: "empty-state" }, el("h1", {}, `${S.ws} has no agents yet`),
-    el("p", {}, "Start with an agent: one per location or phone line. Then put text several agents share into shared instructions, and write down each procedure they follow."),
-    el("button", { class: "btn primary", onclick: () => go("agents", "new") }, "New agent")));
-  go(S.draft.items.length ? "changes" : "agents");
+    el("p", {}, "A workspace holds your agents and the shared instructions, procedures and groups they're built from. Use New workspace at the top to start one.")));
+  if (!S.cfg.agents.length && !S.cfg.instructions.length && !S.cfg.procedures.length) return page(false, el("div", { class: "empty-state" }, el("h1", {}, `${S.ws} has no agents yet`),
+    el("p", {}, "Write the text several agents share as shared instructions, and each procedure they follow. Then build each agent (one per location or phone line) from those blocks, in the order its prompt should have them."),
+    el("div", { style: "display:flex;gap:8px;flex-wrap:wrap" },
+      el("button", { class: "btn primary", onclick: () => go("instructions", "new") }, "New shared instruction"),
+      el("button", { class: "btn", onclick: () => go("procedures", "new") }, "New procedure"),
+      el("button", { class: "btn", onclick: () => go("agents", "new") }, "New agent"))));
+  go(S.draft.items.length ? "changes" : "overview");
+}
+
+function migratePage() {
+  const box = el("div", {}, el("p", { class: "muted" }, "Checking what converting changes…"));
+  page(false, flash(), el("h1", {}, "Convert this workspace"),
+    el("p", { class: "sub" }, `${S.ws} is stored in the format of sopc v0.0.8 and earlier, where shared instructions chose their agents. Now each agent lists the blocks it uses, in order. Converting runs sopc migrate: every agent's prompt stays the same, except that its own text moves to the top.`),
+    box);
+  api("POST", wsUrl("/migrate"), {}).then((res) => {
+    if (!res.needed) { box.replaceChildren(el("p", {}, "Nothing to convert."), el("button", { class: "btn", onclick: async () => { await loadAll(); render(); } }, "Reload")); return; }
+    const btn = el("button", { class: "btn primary" }, "Convert");
+    const msg = el("div");
+    armed(btn, "Click again to convert", async () => {
+      try {
+        await api("POST", wsUrl("/migrate"), { apply: true, author: author(), note: "Converted to the sopc v0.0.9 format" });
+        S.flash = { type: "ok", text: "Converted. The new files are a draft: check the changes, then publish." };
+        await loadAll(); go("changes");
+      } catch (e) { msg.replaceChildren(errorBanner(e, "It can't be converted:")); }
+    });
+    box.replaceChildren(el("h2", { class: "section-title" }, "What changes"), el("pre", { class: "plain" }, res.plan), msg,
+      el("div", { class: "actions" }, btn, el("span", { class: "note" }, "The result is a draft. Nothing reaches agents until you publish.")));
+  }).catch((e) => box.replaceChildren(errorBanner(e, "It can't be converted:")));
 }
 
 function listPage(kind) {
   const items = [...S.cfg[KIND[kind].list]].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
   const intro = {
-    agent: "One per voice agent. Each agent's prompt is put together from its shared instructions, its own instructions and the procedures that apply to it.",
-    base: "Text several agents get, such as identity, voice and policies. Edit it once and every agent that uses it changes.",
+    agent: "One per voice agent. Each agent's prompt is its own text, then the blocks it lists, in that order.",
+    instruction: "Text several agents get, such as identity, voice and policies. Edit it once and every agent that lists it changes.",
     procedure: "Step-by-step procedures the agents follow, with things they must never do and signs that a call needs a person.",
+    group: "A named, ordered set of blocks that several agents share. An agent lists a group like any block, and it expands in place.",
   }[kind];
+  const users = (it) => new Set((it.used_by || []).map((u) => u.agent)).size;
   const cols = {
-    agent: [["Agent", (a) => el("b", {}, a.id)], ["Platform", (a) => `${platformName(a.platform)}: ${a.platform_id}`], ["Shared instructions", (a) => a.inherits.join(", ") || "None"]],
-    base: [["Name", (b) => el("b", {}, b.id)], ["Applies to", (b) => b.agents === "*" ? "All agents" : b.agents.length ? b.agents.join(", ") : "Agents that include it"], ["Agents", (b) => reach("base", b.id).length]],
-    procedure: [["Name", (p) => el("b", {}, p.name)], ["Applies to", (p) => p.agents === "*" ? "All agents" : p.agents.join(", ") || "No agents"], ["Steps", (p) => p.steps.length]],
+    agent: [["Agent", (a) => el("b", {}, a.id)], ["Platform", (a) => `${platformName(a.platform)}: ${a.platform_id}`], ["Blocks", (a) => a.blocks.map(blockName).join(", ") || "None"]],
+    instruction: [["Name", (b) => [el("b", {}, b.id), b.locked ? el("span", { class: "lock" }, "locked") : ""]], ["Used by", (b) => plural(users(b), "agent", "agents")]],
+    procedure: [["Name", (p) => [el("b", {}, p.name), p.locked ? el("span", { class: "lock" }, "locked") : ""]], ["Used by", (p) => plural(users(p), "agent", "agents")], ["Steps", (p) => p.steps.length]],
+    group: [["Name", (g) => el("b", {}, g.id)], ["Blocks", (g) => g.blocks.map(blockName).join(", ") || "None"], ["Used by", (g) => plural(users(g), "agent", "agents")]],
   }[kind];
   page(false, flash(),
     el("div", { class: "title-row" }, el("h1", {}, KIND[kind].many), el("span", { class: "spacer" }), el("button", { class: "btn primary", onclick: () => go(KIND[kind].route, "new") }, `New ${KIND[kind].one.toLowerCase()}`)),
@@ -652,66 +922,122 @@ function listPage(kind) {
       : el("p", { class: "note" }, `No ${KIND[kind].many.toLowerCase()} yet.`));
 }
 
-// --- agents
+// --- overview: which agent uses which block
+function matrixPage(notice) {
+  const agents = S.cfg.agents;
+  const rows = [["group", S.cfg.groups], ["instruction", S.cfg.instructions], ["procedure", [...S.cfg.procedures].sort((a, b) => a.name.localeCompare(b.name))]];
+  const msg = el("div", { class: "toast", "aria-live": "polite", title: "Click to dismiss", onclick: (e) => { if (e.target.tagName !== "A") msg.replaceChildren(); } }, notice || "");
+  const toggleCell = async (agent, id, state) => {
+    if (state.via) {
+      msg.replaceChildren(el("div", { class: "banner warn" }, `${agent} gets ${blockName(id)} through the group `, el("a", { href: itemHref("group", state.via) }, state.via),
+        `. Take it out of that group, or open `, el("a", { href: itemHref("agent", agent) }, agent), " and list the group's other blocks instead."));
+      return;
+    }
+    try {
+      const a = author();
+      if (state.direct) await api("DELETE", wsUrl(`/config/agents/${encodeURIComponent(agent)}/blocks/${encodeURIComponent(id)}${a ? `?author=${encodeURIComponent(a)}` : ""}`));
+      else await api("POST", wsUrl(`/config/agents/${encodeURIComponent(agent)}/blocks`), { block: id, author: a });
+      await loadAll(); renderTop(); renderRail();
+      matrixPage(el("div", { class: "banner ok", role: "status" }, state.direct ? `Took ${blockName(id)} out of ${agent} (draft). ` : `Added ${blockName(id)} at the end of ${agent}'s blocks (draft). `,
+        el("a", { href: itemHref("agent", agent) }, state.direct ? "Open the agent" : "Reorder it"), "."));
+    } catch (e) { msg.replaceChildren(errorBanner(e, state.direct ? `${blockName(id)} can't be taken out of ${agent}:` : `${blockName(id)} can't be added to ${agent}:`)); }
+  };
+  const uses = new Map(agents.map((a) => [a.id, { direct: new Set(a.blocks), via: new Map(expandBlocks(a.blocks).filter((x) => x.via).map((x) => [x.id, x.via])) }]));
+  // A group nested in a listed group counts as through the outer one.
+  for (const a of agents) for (const g of S.cfg.groups) { const via = (g.used_by || []).find((u) => u.agent === a.id && u.via); if (via) uses.get(a.id).via.set(g.id, via.via); }
+  page(true, el("div", { class: "title-row" }, el("h1", {}, "Overview")),
+    el("p", { class: "sub" }, "Which agents use which blocks. Click a cell to add a block to an agent (it goes at the end of the agent's list) or take it out. Each click saves a draft."),
+    msg,
+    agents.length ? el("div", { class: "matrix-wrap" }, el("table", { class: "matrix" },
+      el("thead", {}, el("tr", {}, el("th", { class: "corner" }, ""), agents.map((a) => el("th", { scope: "col" }, el("a", { href: itemHref("agent", a.id) }, a.id))))),
+      rows.map(([kind, items]) => items.length ? el("tbody", {},
+        el("tr", { class: "msec" }, el("th", { colspan: agents.length + 1, scope: "colgroup" }, KIND[kind].many)),
+        items.map((it) => el("tr", {},
+          el("th", { scope: "row" }, badge(kind), " ", el("a", { href: itemHref(kind, it.id) }, itemName(kind, it.id)), it.locked ? el("span", { class: "lock" }, "locked") : ""),
+          agents.map((a) => {
+            const u = uses.get(a.id), direct = u.direct.has(it.id), via = !direct && u.via.get(it.id);
+            const label = direct ? `${a.id} lists ${itemName(kind, it.id)}. Click to take it out.` : via ? `${a.id} gets ${itemName(kind, it.id)} through ${via}.` : `Add ${itemName(kind, it.id)} to ${a.id}.`;
+            return el("td", {}, el("button", { class: "cell" + (direct ? " on" : via ? " via" : ""), type: "button", "aria-label": label, title: label, "aria-pressed": String(!!direct), onclick: () => toggleCell(a.id, it.id, { direct, via }) },
+              direct ? "✓" : via ? el("span", {}, "✓", el("small", {}, via)) : ""));
+          })))) : ""))) : el("p", { class: "note" }, "No agents yet."));
+}
+
+// --- agents: the builder
 function agentPage(id, tab) {
   const isNew = id === "new";
   const item = isNew ? null : S.cfg.agents.find((a) => a.id === id);
   if (!isNew && !item) return missing("agent", id);
   if (tab === "prompt") return promptPage(id);
   if (tab === "history") return historyPage("agent", id, item);
-  const f = makeForm("agent", id, clone(item || { id: "", platform: "livekit", platform_id: "", inherits: [], variables: {}, instructions: "", exclude: [] }), isNew);
+  const locked = [...S.cfg.instructions, ...S.cfg.procedures].filter((b) => b.locked).map((b) => b.id);
+  const f = makeForm("agent", id, clone(item || { id: "", platform: "livekit", platform_id: "", context: "", blocks: locked, variables: {} }), isNew);
+  let view = local.get("sopserve.previewmode"), timer = null, seq = 0, last = null;
+  const preview = el("section", { class: "prompt preview", "aria-label": "Draft prompt" });
+  const drawPreview = () => {
+    const r = last;
+    // Until someone picks, show what changes when the draft differs from the live prompt.
+    const shown = view || (r && r.valid && r.released_prompt !== null && r.prompt !== r.released_prompt ? "changes" : "prompt");
+    const seg = el("div", { class: "seg small", role: "group", "aria-label": "Preview" }, [["prompt", "Prompt"], ["changes", "Changes vs live"]].map(([v, l]) =>
+      el("button", { type: "button", "aria-pressed": String(shown === v), onclick: () => { view = v; local.set("sopserve.previewmode", v); drawPreview(); } }, l)));
+    const errors = r ? r.issues.filter((i) => i.severity === "error") : [];
+    const body = !r ? el("p", { class: "note pad" }, "Building…")
+      : !r.valid ? el("div", { class: "pad" }, el("div", { class: "banner err" }, "This draft can't be built yet:", issueList(errors.length ? errors : r.issues, { kind: "agent", id: f.model.id || id })))
+      : shown === "prompt" ? el("pre", {}, r.prompt)
+      : el("div", { class: "pad" }, r.released_prompt === null ? el("p", { class: "note" }, "Not live yet: the whole prompt is new.") : "", diffView(r.released_prompt, r.prompt, { empty: "Same as the live prompt." }));
+    const c = r && r.valid ? diffCount(diffLines(splitLines(r.released_prompt), splitLines(r.prompt))) : null;
+    preview.replaceChildren(el("header", {}, el("b", {}, "Draft prompt"), shown === "changes" ? el("span", { class: "spacer" }) : c && (c.add || c.del) ? counts(c) : r && r.valid ? el("span", { class: "note" }, "same as live") : "", seg), body);
+  };
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      const mine = ++seq;
+      const m = f.model;
+      try {
+        const r = await api("POST", wsUrl(`/config/agents/${encodeURIComponent(isNew ? (m.id.trim() || "new-agent") : id)}/preview`), { platform: m.platform, platform_id: m.platform_id || "(not set)", context: m.context, blocks: m.blocks, variables: m.variables });
+        if (mine === seq) { last = r; drawPreview(); }
+      } catch (e) { if (mine === seq) { last = { valid: false, issues: (e.data && e.data.issues) || [{ text: e.message, severity: "error" }] }; drawPreview(); } }
+    }, 350);
+  };
+  f.onChange.push(refresh);
+  f.onBlocks = [() => f.redrawVars && f.redrawVars()];
   const draw = (top) => {
     const m = f.model;
-    const autoBases = S.cfg.bases.filter((b) => (b.agents === "*" || b.agents.includes(m.id)) && !b.exclude.includes(m.id));
-    const autoProcs = S.cfg.procedures.filter((p) => (p.agents === "*" || p.agents.includes(m.id)) && !p.exclude.includes(m.id));
-    const skippable = [
-      ...autoBases.map((b) => ({ value: b.id, label: b.id, hint: b.locked ? "locked" : "shared instruction", disabled: b.locked })),
-      ...autoProcs.map((p) => ({ value: p.id, label: p.name, hint: p.locked ? "locked" : "procedure", disabled: p.locked })),
-    ];
-    for (const x of m.exclude) if (!skippable.some((o) => o.value === x)) skippable.push({ value: x, label: itemName(S.cfg.procedures.some((p) => p.id === x) ? "procedure" : "base", x), hint: "doesn't apply to this agent" });
     const plat = PLATFORMS.find((p) => p[0] === m.platform) || PLATFORMS[0];
-    const defaults = Object.entries(S.cfg.settings.variables);
-    page(false, flash(), ...(isNew ? newHeader("agent") : header("agent", id, id, "")), top || "",
-      el("div", { class: "form" },
-        field(f, "id", "Name", isNew ? "A short id, for example the location: downtown. Letters, digits and dashes. It can't be changed later." : null,
-          input(f, "id", { readOnly: !isNew, placeholder: "downtown" })),
-        el("div", { class: "pair" },
-          field(f, "platform", "Platform", null, choose(f, "platform", PLATFORMS.map(([v, l]) => [v, l]), () => draw())),
-          field(f, "platform_id", `${plat[1]} ${plat[2].toLowerCase()}`, null, input(f, "platform_id", { placeholder: plat[2] }))),
-        field(f, "inherits", "Shared instructions", "Put at the top of the prompt, in this order. Each brings along the shared instructions it includes.",
-          picker(f, "inherits", S.cfg.bases.map((b) => ({ value: b.id, label: b.id, hint: b.position === "bottom" ? "end of prompt" : null })), { ordered: true, empty: "None yet." })),
-        autoBases.length ? el("p", { class: "note", style: "margin-top:-14px" }, `Also given to this agent automatically: ${autoBases.map((b) => b.id).join(", ")}.`) : "",
-        field(f, "variables", "Variables", `Values for placeholders such as {{restaurant_name}} in shared text.${defaults.length ? ` Defaults from Settings: ${defaults.map(([k, v]) => `${k} = ${v}`).join("; ")}.` : ""}`,
-          varRows(f, "variables", "value")),
-        field(f, "instructions", "Instructions only this agent gets", "Facts about this location: hours, address, what it doesn't offer.", area(f, "instructions", { class: "tall" })),
-        field(f, "exclude", "Skip", "Shared instructions or procedures this agent gets automatically but shouldn't follow. Locked ones can't be skipped.",
-          picker(f, "exclude", skippable, { empty: "Nothing skipped." })),
-      ),
+    const lockedMissing = locked.filter((b) => !expandBlocks(m.blocks).some((x) => x.id === b));
+    page(true, flash(), ...(isNew ? newHeader("agent") : header("agent", id, id, "")), top || "",
+      el("div", { class: "builder" },
+        el("div", { class: "form" },
+          el("div", { class: "pair3" },
+            field(f, "id", "Name", isNew ? "A short id, e.g. the location. Can't be changed later." : null, input(f, "id", { readOnly: !isNew, placeholder: "downtown" })),
+            field(f, "platform", "Platform", null, choose(f, "platform", PLATFORMS.map(([v, l]) => [v, l]), () => draw())),
+            field(f, "platform_id", `${plat[1]} ${plat[2].toLowerCase()}`, null, input(f, "platform_id", { placeholder: plat[2] }))),
+          field(f, "context", "About this agent", "Goes first in the prompt. Facts only this agent needs: the location, hours, what it doesn't offer.", area(f, "context")),
+          field(f, "blocks", "Blocks", "Shared instructions, procedures and groups, in prompt order. Drag or use the arrows to reorder; open a block to read or edit it.",
+            [lockedMissing.length ? el("div", { class: "fwarn", style: "margin:0 0 8px" }, `Every agent must include ${lockedMissing.map(blockName).join(", ")}; this one doesn't yet.`) : "", blockStack(f, "blocks")]),
+          field(f, "variables", "Variables", "Values for the {{placeholders}} in this agent's blocks. Leave one empty to use the default from Settings.", agentVars(f))),
+        el("div", { class: "side" }, preview)),
       actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id }, note), onDelete: isNew ? null : () => deleteItem(f) }));
+    drawPreview();
   };
   f.rerender = draw;
   draw();
+  refresh();
 }
 
 // --- shared instructions
-function basePage(id, tab) {
+function instructionPage(id, tab) {
   const isNew = id === "new";
-  const item = isNew ? null : S.cfg.bases.find((b) => b.id === id);
-  if (!isNew && !item) return missing("base", id);
-  if (tab === "history") return historyPage("base", id, item);
-  const f = makeForm("base", id, clone(item || { id: "", text: "", agents: [], exclude: [], inherits: [], position: "top", locked: false }), isNew);
+  const item = isNew ? null : S.cfg.instructions.find((b) => b.id === id);
+  if (!isNew && !item) return missing("instruction", id);
+  if (tab === "history") return historyPage("instruction", id, item);
+  const f = makeForm("instruction", id, clone(item || { id: "", text: "", locked: false }), isNew);
   const draw = (top) => {
     const m = f.model;
-    page(false, flash(), ...(isNew ? newHeader("base") : [...header("base", id, id, ""), reachNote("base", id)]), top || "",
+    page(false, flash(), ...(isNew ? newHeader("instruction") : [...header("instruction", id, id, ""), usedByNote("instruction", item)]), top || "",
       el("div", { class: "form" },
         field(f, "id", "Name", isNew ? "A short id, for example brand-voice. Letters, digits and dashes. It can't be changed later." : null, input(f, "id", { readOnly: !isNew, placeholder: "brand-voice" })),
         field(f, "text", "Text", "What the agents are told. Write {{name}} for a value that differs per agent, and set it in each agent's variables.", area(f, "text", { class: "tall" })),
-        field(f, "agents", "Applies to", null, audience(f, { base: true })),
-        field(f, "inherits", "Includes", "Other shared instructions put before this one wherever it's used.",
-          picker(f, "inherits", S.cfg.bases.filter((b) => b.id !== m.id).map((b) => ({ value: b.id, label: b.id })), { ordered: true, empty: "None." })),
-        field(f, "position", "Position in the prompt", null, choose(f, "position", [["top", "Top, before the agent's own instructions"], ["bottom", "Bottom, after the procedures (for example, how to end a call)"]])),
-        field(f, "locked", "Locked", null, toggle(f, "locked", "Agents can't skip it. Use this for rules every agent it applies to must follow.")),
-      ),
+        field(f, "locked", "Locked", null, toggle(f, "locked", LOCK_HELP))),
       actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id }, note), onDelete: isNew ? null : () => deleteItem(f) }));
   };
   f.rerender = draw;
@@ -725,30 +1051,48 @@ function procedurePage(id, tab) {
   const item = isNew ? null : S.cfg.procedures.find((p) => p.id === id);
   if (!isNew && !item) return missing("procedure", id);
   if (tab === "history") return historyPage("procedure", id, item);
-  const blank = { id: "", name: "", goal: "", when: "", guidance: "", steps: [{ text: "", tool: null, required: false }], never: [], warning_signs: [], agents: "*", exclude: [], delivery: "prompt", locked: false };
+  const blank = { id: "", name: "", goal: "", when: "", guidance: "", steps: [{ text: "", tool: null, required: false }], never: [], warning_signs: [], delivery: "prompt", locked: false };
   const f = makeForm("procedure", id, clone(item || blank), isNew);
   let idEdited = !isNew;
   const draw = (top) => {
     const m = f.model;
     const d = DELIVERY.find((x) => x[0] === m.delivery) || DELIVERY[0];
-    page(false, flash(), ...(isNew ? newHeader("procedure") : [...header("procedure", id, item.name, ""), reachNote("procedure", id)]), top || "",
+    page(false, flash(), ...(isNew ? newHeader("procedure") : [...header("procedure", id, item.name, ""), usedByNote("procedure", item)]), top || "",
       el("div", { class: "form" },
         field(f, "name", "Name", "The heading agents see, for example Large orders.", input(f, "name", { oninput: (e) => {
           m.name = e.target.value; touch(f);
           if (isNew && !idEdited) { m.id = slug(m.name); $("f-id").value = m.id; }
         } })),
-        isNew ? field(f, "id", "ID", "Made from the name. Tools use it to fetch the procedure, so it can't be changed later.", input(f, "id", { oninput: (e) => { m.id = e.target.value; idEdited = true; touch(f); } })) : "",
+        isNew ? field(f, "id", "ID", "Made from the name. Agents list it by this id, and tools use it to fetch the procedure, so it can't be changed later.", input(f, "id", { oninput: (e) => { m.id = e.target.value; idEdited = true; touch(f); } })) : "",
         field(f, "goal", "Goal", "The outcome that means it worked. Reviewers judge calls against it.", input(f, "goal", { placeholder: "The order is placed with a pickup time the kitchen can meet." })),
         field(f, "when", "When it applies", null, input(f, "when", { placeholder: "Any order with more than 10 items." })),
         field(f, "guidance", "Guidance", "Anything else the agent should know that isn't a step.", area(f, "guidance")),
         field(f, "steps", "Steps", "In order. Name a tool to have the agent use it, and mark it required if the call must happen.", stepRows(f, "steps", { steps: true, placeholder: "What the agent does", noun: "Step" })),
         field(f, "never", "Never", "Things the agent must never do.", stepRows(f, "never", { placeholder: "Never …", noun: "Rule" })),
         field(f, "warning_signs", "Warning signs", "Situations that need special handling, usually a transfer to a person.", stepRows(f, "warning_signs", { placeholder: "Caller mentions …; transfer to …", noun: "Warning sign" })),
-        field(f, "agents", "Applies to", null, audience(f, { base: false })),
         field(f, "delivery", "Delivery", d[2], choose(f, "delivery", DELIVERY.map(([v, l]) => [v, l]), () => draw())),
-        field(f, "locked", "Locked", null, toggle(f, "locked", "Agents can't skip it.")),
+        field(f, "locked", "Locked", null, toggle(f, "locked", LOCK_HELP)),
       ),
       actionBar(f, { onSave: (note) => saveItem(f, { ...m, id: isNew ? m.id.trim() : id, steps: m.steps.map(cleanStep), never: m.never.map(cleanStep), warning_signs: m.warning_signs.map(cleanStep) }, note), onDelete: isNew ? null : () => deleteItem(f) }));
+  };
+  f.rerender = draw;
+  draw();
+}
+
+// --- groups
+function groupPage(id, tab) {
+  const isNew = id === "new";
+  const item = isNew ? null : S.cfg.groups.find((g) => g.id === id);
+  if (!isNew && !item) return missing("group", id);
+  if (tab === "history") return historyPage("group", id, item);
+  const f = makeForm("group", id, clone(item || { id: "", blocks: [] }), isNew);
+  const draw = (top) => {
+    const m = f.model;
+    page(false, flash(), ...(isNew ? newHeader("group") : [...header("group", id, id, ""), usedByNote("group", item)]), top || "",
+      el("div", { class: "form" },
+        field(f, "id", "Name", isNew ? "A short id, for example delivery-orders. It shares names with shared instructions and procedures, and can't be changed later." : null, input(f, "id", { readOnly: !isNew, placeholder: "delivery-orders" })),
+        field(f, "blocks", "Blocks", "In order. An agent that lists this group gets these blocks in its place. Groups can include other groups.", blockStack(f, "blocks", { owner: isNew ? null : id }))),
+      actionBar(f, { onSave: (note) => saveItem(f, { id: isNew ? m.id.trim() : id, blocks: m.blocks }, note), onDelete: isNew ? null : () => deleteItem(f) }));
   };
   f.rerender = draw;
   draw();
@@ -762,17 +1106,14 @@ function settingsPage(tab) {
     page(false, flash(), ...header("settings", "settings", "Settings", ""), top || "",
       el("div", { class: "form" },
         field(f, "variables", "Default variables", "Values for placeholders every agent gets unless the agent sets its own.", varRows(f, "variables", "default value")),
-        field(f, "procedures_heading", "Procedures heading", "The heading above the procedures in every prompt.", input(f, "procedures_heading")),
-        field(f, "procedure_order", "Procedures first", "These procedures come first in every prompt, in this order. The rest follow alphabetically.",
-          picker(f, "procedure_order", S.cfg.procedures.map((p) => ({ value: p.id, label: p.name })), { ordered: true, empty: "None. Procedures are in alphabetical order." })),
+        field(f, "procedures_heading", "Procedures heading", "Placed once, right before the first procedure in every prompt. Leave it empty for none.", input(f, "procedures_heading")),
       ),
-      actionBar(f, { onSave: (note) => saveItem(f, f.model, note) }));
+      actionBar(f, { onSave: (note) => saveItem(f, { variables: f.model.variables, procedures_heading: f.model.procedures_heading }, note) }));
   };
   f.rerender = draw;
   draw();
 }
 
-// --- prompt preview
 // --- diffs: one component for prompts, item history and field changes
 const splitLines = (t) => (t === null || t === undefined ? [] : Array.isArray(t) ? t : String(t).replace(/\n$/, "").split("\n"));
 
@@ -900,22 +1241,32 @@ const promptCounts = (a) => diffCount(diffLines(splitLines(a.released_prompt), s
 
 // --- what changed in an item, field by field, in plain words
 const FIELD_LABELS = {
-  agent: [["platform", "Platform"], ["platform_id", "Platform id"], ["inherits", "Shared instructions"], ["variables", "Variables"], ["instructions", "Instructions"], ["exclude", "Skips"]],
-  base: [["text", "Text"], ["agents", "Applies to"], ["exclude", "Except"], ["inherits", "Includes"], ["position", "Position"], ["locked", "Locked"]],
-  procedure: [["name", "Name"], ["goal", "Goal"], ["when", "When it applies"], ["guidance", "Guidance"], ["steps", "Steps"], ["never", "Never"], ["warning_signs", "Warning signs"], ["agents", "Applies to"], ["exclude", "Except"], ["delivery", "Delivery"], ["locked", "Locked"]],
-  settings: [["variables", "Default variables"], ["procedures_heading", "Procedures heading"], ["procedure_order", "Procedures first"]],
+  agent: [["platform", "Platform"], ["platform_id", "Platform id"], ["context", "About this agent"], ["blocks", "Blocks"], ["variables", "Variables"]],
+  instruction: [["text", "Text"], ["locked", "Locked"]],
+  procedure: [["name", "Name"], ["goal", "Goal"], ["when", "When it applies"], ["guidance", "Guidance"], ["steps", "Steps"], ["never", "Never"], ["warning_signs", "Warning signs"], ["delivery", "Delivery"], ["locked", "Locked"]],
+  group: [["blocks", "Blocks"]],
+  settings: [["variables", "Default variables"], ["procedures_heading", "Procedures heading"]],
 };
-const TEXT_FIELDS = ["instructions", "text", "guidance"];
+const TEXT_FIELDS = ["context", "text", "guidance"];
 const STEP_FIELDS = ["steps", "never", "warning_signs"];
-const LIST_FIELDS = ["inherits", "exclude", "procedure_order", "agents"];
-function nameIn(field, v) {
-  if (field === "procedure_order" || field === "exclude") return S.cfg.procedures.some((p) => p.id === v) ? itemName("procedure", v) : v;
-  return v;
+const nameIn = (field, v) => field === "blocks" ? blockName(v) : v;
+// "+ reservations", "− pizza-context", "moved closing to the end": a blocks list change in words.
+function listChanges(a, b) {
+  const plus = b.filter((x) => !a.includes(x)), minus = a.filter((x) => !b.includes(x));
+  const bits = [...plus.map((x) => ({ t: `+ ${blockName(x)}`, c: "c-add" })), ...minus.map((x) => ({ t: `− ${blockName(x)}`, c: "c-del" }))];
+  const keptA = a.filter((x) => b.includes(x)), keptB = b.filter((x) => a.includes(x));
+  // Blocks outside the longest run kept in order are the ones that moved.
+  const stay = new Set(diffLines(keptA, keptB).filter((o) => o.op === " ").map((o) => o.text));
+  for (const x of keptB.filter((y) => !stay.has(y))) {
+    const i = b.indexOf(x);
+    const where = i === b.length - 1 ? "to the end" : i === 0 ? "to the top" : `after ${blockName(b[i - 1])}`;
+    bits.push({ t: `moved ${blockName(x)} ${where}`, c: "c-mod" });
+  }
+  return bits;
 }
 function scalarText(field, v) {
   if (field === "platform") return platformName(v);
   if (field === "delivery") return (DELIVERY.find((d) => d[0] === v) || [0, v])[1];
-  if (field === "position") return v === "bottom" ? "Bottom" : "Top";
   if (field === "locked") return v ? "On" : "Off";
   return v === "" ? "(empty)" : v;
 }
@@ -937,14 +1288,9 @@ function fieldChanges(kind, before, after) {
       const moved = !added && !removed && !edited;
       const parts = [added && `${added} added`, edited && `${edited} edited`, removed && `${removed} removed`].filter(Boolean);
       out.push({ label, summary: moved ? "reordered" : parts.join(", "), detail: () => diffView(a.map(stepLine), b.map(stepLine), { toggle: false, context: 99 }) });
-    } else if (field === "agents" && (a === "*" || b === "*")) {
-      const show = (v) => v === "*" ? "All agents" : v.length ? v.join(", ") : kind === "base" ? "Agents that include it" : "No agents";
-      out.push({ label, summary: `${show(a)} → ${show(b)}`, values: [show(a), show(b)] });
-    } else if (LIST_FIELDS.includes(field)) {
-      const plus = b.filter((x) => !a.includes(x)), minus = a.filter((x) => !b.includes(x));
-      const bits = [...plus.map((x) => ({ t: `+ ${nameIn(field, x)}`, c: "c-add" })), ...minus.map((x) => ({ t: `− ${nameIn(field, x)}`, c: "c-del" }))];
-      if (!bits.length) bits.push({ t: "order changed", c: "" });
-      out.push({ label, summary: bits, values: [a.map((x) => nameIn(field, x)).join(", ") || "none", b.map((x) => nameIn(field, x)).join(", ") || "none"] });
+    } else if (field === "blocks") {
+      const bits = listChanges(a, b);
+      out.push({ label, summary: bits.length ? bits : [{ t: "order changed", c: "" }], detail: () => diffView(a.map((x) => nameIn(field, x)), b.map((x) => nameIn(field, x)), { toggle: false, context: 99 }) });
     } else if (field === "variables") {
       const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])];
       const bits = [];
@@ -1018,13 +1364,15 @@ async function promptPage(id) {
 function readable(kind, it) {
   if (!it || it.deleted) return ["(deleted)"];
   const list = (title, items, numbered) => items.length ? [title, ...items.map((s, i) => `  ${numbered ? `${i + 1}.` : "-"} ${s.text}${s.tool ? `  [tool: ${s.tool}${s.required ? ", required" : ""}]` : ""}`)] : [];
-  const to = (a, ex) => (a === "*" ? "all agents" : a.length ? a.join(", ") : kind === "base" ? "agents that include it" : "no agents") + (ex.length ? `, except ${ex.join(", ")}` : "");
+  if (it.legacy) return ["(saved in the format of sopc v0.0.8 and earlier)", ...it.content.replace(/\n+$/, "").split("\n")];
+  const blocks = (ids) => ids.length ? ["Blocks:", ...ids.map((b, i) => `  ${i + 1}. ${blockName(b)}${blockKind(b) ? ` (${KIND[blockKind(b)].badge})` : ""}`)] : ["Blocks: none"];
   const vars = (title, v) => Object.keys(v).length ? [title, ...Object.entries(v).map(([k, x]) => `  ${k} = ${x}`)] : [`${title} none`];
   const block = (title, t) => t ? [title, ...t.replace(/\n+$/, "").split("\n").map((l) => "  " + l)] : [`${title} (empty)`];
-  if (kind === "agent") return [`Platform: ${platformName(it.platform)}, ${it.platform_id}`, `Shared instructions: ${it.inherits.join(", ") || "none"}`, ...vars("Variables:", it.variables), ...block("Instructions:", it.instructions), `Skips: ${it.exclude.map((x) => itemName(S.cfg.procedures.some((p) => p.id === x) ? "procedure" : "base", x)).join(", ") || "nothing"}`];
-  if (kind === "base") return [...block("Text:", it.text), `Applies to: ${to(it.agents, it.exclude)}`, `Includes: ${it.inherits.join(", ") || "nothing"}`, `Position: ${it.position}`, `Locked: ${it.locked ? "yes" : "no"}`];
-  if (kind === "procedure") return [`Name: ${it.name}`, `Goal: ${it.goal}`, `When: ${it.when}`, ...block("Guidance:", it.guidance), ...list("Steps:", it.steps, true), ...list("Never:", it.never), ...list("Warning signs:", it.warning_signs), `Applies to: ${to(it.agents, it.exclude)}`, `Delivery: ${(DELIVERY.find((d) => d[0] === it.delivery) || [0, it.delivery])[1]}`, `Locked: ${it.locked ? "yes" : "no"}`];
-  return [...vars("Default variables:", it.variables), `Procedures heading: ${it.procedures_heading}`, `Procedures first: ${it.procedure_order.map((p) => itemName("procedure", p)).join(", ") || "none"}`];
+  if (kind === "agent") return [`Platform: ${platformName(it.platform)}, ${it.platform_id}`, ...block("About this agent:", it.context), ...blocks(it.blocks), ...vars("Variables:", it.variables)];
+  if (kind === "instruction") return [...block("Text:", it.text), `Locked: ${it.locked ? "yes" : "no"}`];
+  if (kind === "procedure") return [`Name: ${it.name}`, `Goal: ${it.goal}`, `When: ${it.when}`, ...block("Guidance:", it.guidance), ...list("Steps:", it.steps, true), ...list("Never:", it.never), ...list("Warning signs:", it.warning_signs), `Delivery: ${(DELIVERY.find((d) => d[0] === it.delivery) || [0, it.delivery])[1]}`, `Locked: ${it.locked ? "yes" : "no"}`];
+  if (kind === "group") return blocks(it.blocks);
+  return [...vars("Default variables:", it.variables), `Procedures heading: ${it.procedures_heading || "(none)"}`];
 }
 async function historyPage(kind, id, item, chosenIndex) {
   const title = kind === "settings" ? "Settings" : itemName(kind, id);
@@ -1050,8 +1398,8 @@ async function historyPage(kind, id, item, chosenIndex) {
       el("div", {},
         current ? [el("p", { class: "sub", style: "margin-top:0" }, "This is the current draft. Pick an older version to see what changed since."), el("pre", { class: "plain" }, readable(kind, item).join("\n"))]
           : [el("p", { class: "sub", style: "margin-top:0" }, `What changed from ${label(pick).toLowerCase()} to the current draft.`),
-            old.deleted || !item ? diffView(readable(kind, old), readable(kind, item)) : [changeList(kind, old, item), el("h3", { class: "minor" }, "All of it, line by line"), diffView(readable(kind, old), readable(kind, item), { context: 99 })],
-            !old.deleted && item ? el("div", { class: "actions" }, el("button", { class: "btn", onclick: () => restore(kind, id, old, hist.length - pick) }, `Restore ${label(pick).toLowerCase()}`),
+            old.deleted || old.legacy || !item ? diffView(readable(kind, old), readable(kind, item)) : [changeList(kind, old, item), el("h3", { class: "minor" }, "All of it, line by line"), diffView(readable(kind, old), readable(kind, item), { context: 99 })],
+            !old.deleted && !old.legacy && item ? el("div", { class: "actions" }, el("button", { class: "btn", onclick: () => restore(kind, id, old, hist.length - pick) }, `Restore ${label(pick).toLowerCase()}`),
               el("span", { class: "note" }, "Opens it in the form. Nothing changes until you save.")) : ""])));
 }
 function restore(kind, id, old, label) {
@@ -1059,7 +1407,7 @@ function restore(kind, id, old, label) {
   S.flash = { type: "warn", text: `Showing version ${label}. Save draft to keep it, or leave without saving.` };
   render();
   if (!S.form) return;
-  const skip = ["id", "file", "version", "updated_at", "updated_by", "format", "deleted"];
+  const skip = ["id", "file", "version", "updated_at", "updated_by", "format", "deleted", "used_by", "legacy"];
   for (const [k, v] of Object.entries(old)) if (!skip.includes(k)) S.form.model[k] = clone(v);
   S.form.dirty = true;
   S.flash = { type: "warn", text: `Showing version ${label}. Save draft to keep it, or leave without saving.` };
@@ -1089,6 +1437,7 @@ function changesPage() {
     const href = i.change === "deleted" ? null : itemHref(i.kind, i.id);
     let body;
     if (i.change === "edited" && i.before && i.after) body = changeList(i.kind, i.before, i.after);
+    else if (i.change === "edited" && i.after) body = [el("p", { class: "note" }, "The released version can't be read field by field, so here is the draft."), el("pre", { class: "plain" }, readable(i.kind, i.after).join("\n"))];
     else if (i.change === "added" && i.after) body = el("pre", { class: "plain add" }, readable(i.kind, i.after).join("\n"));
     else if (i.change === "deleted" && i.before) body = el("pre", { class: "plain del" }, readable(i.kind, i.before).join("\n"));
     else body = el("p", { class: "note" }, "The draft has errors, so the details can't be shown.");
@@ -1131,7 +1480,7 @@ function releasesPage() {
 function itemOfPath(path) {
   if (path === "sopc.yaml") return ["settings", "settings"];
   const [dir, name] = path.split("/");
-  return [{ agents: "agent", bases: "base", procedures: "procedure" }[dir], (name || "").replace(/\.(md|yaml)$/, "")];
+  return [{ agents: "agent", instructions: "instruction", bases: "instruction", procedures: "procedure" }[dir], (name || "").replace(/\.(md|yaml)$/, "")];
 }
 async function releasePage(n) {
   let r;
@@ -1154,7 +1503,7 @@ async function releasePage(n) {
     el("div", { class: "panel" }, el("h2", {}, "Agents"), el("table", { class: "list" }, Object.entries(r.agents).map(([id, a]) =>
       el("tr", {}, el("td", {}, el("b", {}, id)), el("td", { class: "muted" }, a.platform_ref), el("td", { class: "note" }, `hash ${a.hash.slice(0, 10)}`))))),
     el("div", { class: "panel" }, el("h2", {}, "Built from"), el("table", { class: "list" },
-      [["Agents", "agent"], ["Shared instructions", "base"], ["Procedures", "procedure"], ["Settings", "settings"]].map(([label, kind]) =>
+      [["Agents", "agent"], ["Shared instructions", "instruction"], ["Procedures", "procedure"], ["Settings and groups", "settings"]].map(([label, kind]) =>
         el("tr", {}, el("td", { class: "muted", style: "width:180px" }, label), el("td", {}, group(kind)))))));
 }
 

@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
-# sopc compiles the prompts. sopserve needs `sopc validate --json` and `sopc export`, first released after v0.0.7.
-ARG SOPC_REF=v0.0.8
+# sopc compiles the prompts. sopserve speaks the sopc v0.0.9 format (agents compose blocks).
+ARG SOPC_REF=v0.0.9
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates \
     && curl -fsSL https://raw.githubusercontent.com/amanmibra/sopc/main/install.sh | SOPC_REF=$SOPC_REF SOPC_INSTALL_DIR=/usr/local/bin sh \
     && apt-get purge -y curl && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
