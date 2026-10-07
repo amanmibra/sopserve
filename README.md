@@ -1,10 +1,10 @@
-# 📋🧩 sopserve
+# 📋🗄️ sopserve
 
-The server for [sopc](https://github.com/amanmibra/sopc). sopc compiles shared bases and SOPs into one full prompt per agent; sopserve stores those files with versions, releases them, and hands each agent its prompt when a call starts, so a change goes live without redeploying the agent.
+The server for [sopc](https://github.com/amanmibra/sopc). sopc compiles shared instructions and procedures (SOPs) into one full prompt per agent; sopserve stores those files with versions, releases them, and hands each agent its prompt when a call starts, so a change goes live without redeploying the agent.
 
 Prompts are compiled by the `sopc` binary itself, so what sopserve serves matches `sopc` on the command line byte for byte.
 
-Status: v0. **There is no authentication yet**: anyone who can reach sopserve can read and change everything, so run it on a private network only. API keys are on the [roadmap](#roadmap).
+Status: v0. It currently speaks the sopc v0.0.8 format (the Dockerfile pins it); moving to v0.0.9, where agents compose blocks, is next. **There is no authentication yet**: anyone who can reach sopserve can read and change everything, so run it on a private network only. API keys are on the [roadmap](#roadmap).
 
 ## Two ways to use it
 
